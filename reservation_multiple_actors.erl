@@ -30,7 +30,7 @@ initialize(GridSize, NActors) ->
     % Spawn grid actors
     GridsSpecs = create_grids_specs(GridSize, W, H),
     Pids = lists:map(fun(GridSpec) ->
-                             spawn_link(grid_actor, actor, [GridSpec])
+                             spawn_link(grid_actor, start, [GridSpec])
                      end,
                      GridsSpecs),
     % Spawn manager
