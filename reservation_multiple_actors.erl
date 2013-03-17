@@ -80,7 +80,9 @@ create_grids_specs(GridSize, W, H, X, Y, GridsSpecs) ->
     create_grids_specs(GridSize, W, H, X, Y+H, [NewGridSpec|GridsSpecs]).
 
 get_size_of_resource(ManagerData, _Pid) ->
-    ManagerData. % TODO
+    {GridSize, _, _, _, _} = ManagerData,
+    Pid ! {self(), get_size_of_resource, GridSize},
+    ManagerData.
 
 has_remaining_free_cells(ManagerData, _Pid) ->
     ManagerData. % TODO
