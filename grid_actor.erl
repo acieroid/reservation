@@ -32,8 +32,6 @@ create_empty_grid(W, H, X, Y) ->
     Grid = [ EmptyRow || _ <- lists:seq(1, H) ],
     % TODO: what's the purpose of this?
     UnspecificRequests = {[], 0},
-    erlang:display({X, Y, W, H}),
-
 
     {{W, H, X, Y}, Grid, FreeCells, UnspecificRequests}.
 

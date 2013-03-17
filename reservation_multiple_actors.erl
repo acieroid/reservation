@@ -42,23 +42,24 @@ manager(ManagerData) ->
     NewManagerData =
         receive
             {Pid, get_size_of_resource} ->
-                erlang:display(get_size_of_resource),
+                erlang:display({received, get_size_of_resource}),
                 get_size_of_resource(ManagerData, Pid);
             {Pid, has_remaining_free_cells} ->
-                erlang:display(has_remaining_free_cells),
+                erlang:display({received, has_remaining_free_cells}),
                 has_remaining_free_cells(ManagerData, Pid);
             {Pid, get_grid_overview} ->
-                erlang:display(get_grid_overview),
+                erlang:display({received, get_grid_overview}),
                 get_grid_overview(ManagerData, Pid);
             {Pid, reserve_cells, NumberOfCells} ->
-                erlang:display(reserve_cells),
+                erlang:display({received, reserve_cells}),
                 reserve_cells(ManagerData, Pid, NumberOfCells);
             {Pid, request_specific_cells, ReservationId, Coordinates} ->
-                erlang:display(reserve_cells),
+                erlang:display({received, reserve_cells}),
                 request_specific_cells(ManagerData, Pid, ReservationId, Coordinates);
             Else ->
                 erlang:display({unexpected_message, manager, Else})
         end,
+    erlang:display({new_manager_data,NewManagerData}),
     manager(NewManagerData).
 
 %%
@@ -107,6 +108,7 @@ create_grids_specs(GridSize, W, H, X, Y, GridsSpecs) ->
 get_size_of_resource(ManagerData, Pid) ->
     % The grid size is a static value and does not change over the
     % execution
+    erlang:display({get_size_of_resource, Pid}),
     {GridSize, _, _, _, _} = ManagerData,
     Pid ! {self(), get_size_of_resource, GridSize},
     ManagerData.
@@ -118,7 +120,7 @@ has_remaining_free_cells(ManagerData, Pid) ->
     lists:map(fun(Actor) -> Actor ! {self(), Ref, has_remaining_free_cells} end,
               Pids),
     Pid ! {self(), has_remaining_free_cells,
-           has_remaining_free_cells_gather_responses(lists:length(Pids),
+           has_remaining_free_cells_gather_responses(length(Pids),
                                                      Ref, false)},
     ManagerData.
 
