@@ -32,14 +32,16 @@ create_empty_grid(W, H, X, Y) ->
     Grid = [ EmptyRow || _ <- lists:seq(1, H) ],
     % TODO: what's the purpose of this?
     UnspecificRequests = {[], 0},
+    erlang:display({X, Y, W, H}),
+
 
     {{W, H, X, Y}, Grid, FreeCells, UnspecificRequests}.
 
 actor(Grid) ->
     NewGrid =
         receive
-            {Pid, has_remaining_free_cells} ->
-                has_remaining_free_cells(Grid, Pid);
+            {Pid, Ref, has_remaining_free_cells} ->
+                has_remaining_free_cells(Grid, Pid, Ref);
             {Pid, get_grid_overview} ->
                 get_grid_overview(Grid, Pid);
             {Pid, reserve_cells, NumberOfCells} ->
@@ -51,7 +53,9 @@ actor(Grid) ->
         end,
     actor(NewGrid).
 
-has_remaining_free_cells(Grid, _Pid) ->
+has_remaining_free_cells(Grid, Pid, Ref) ->
+    {_, _, FreeCells, _} = Grid,
+    Pid ! {self(), Ref, has_remaining_free_cells, FreeCells > 0},
     Grid. % TODO
 
 get_grid_overview(Grid, _Pid) ->
