@@ -29,12 +29,13 @@ initialize(GridSize, NActors) ->
     H = round(GridSize/M),
     % Spawn grid actors
     GridsSpecs = create_grids_specs(GridSize, W, H),
+    UnspecificRequests = {[], 0}, % TODO: also distribute this over the clients
     Actors = lists:map(fun(GridSpec) ->
                              spawn_link(grid_actor, start, [GridSpec])
                      end,
                      GridsSpecs),
     % Spawn manager
-    ManagerData = {GridSize, GridSize*GridSize, W, H, Actors},
+    ManagerData = {GridSize, GridSize*GridSize, W, H, Actors, UnspecificRequests},
     spawn_link(?MODULE, manager, [ManagerData]).
 
 % TODO: relaunch actors that fails ?
@@ -59,12 +60,26 @@ manager(ManagerData) ->
             Else ->
                 erlang:display({unexpected_message, manager, Else})
         end,
-    erlang:display({new_manager_data,NewManagerData}),
     manager(NewManagerData).
 
 %%
 %% Local functions
 %%
+get_grid_size({GridSize, _, _, _, _, _}) ->
+    GridSize.
+get_free_cells({_, FreeCells, _, _, _, _}) ->
+    FreeCells.
+get_width({_, _, W, _, _, _}) ->
+    W.
+get_height({_, _, _, H, _, _}) ->
+    H.
+get_actors({_, _, _, _, Actors, _}) ->
+    Actors.
+get_unspecific_requests({_, _, _, _, _, UnspecificRequests}) ->
+    UnspecificRequests.
+get_max_request({GridSize, _, _, _, _, _}) ->
+    GridSize*GridSize * ?MAX_REQUEST.
+
 decompose(N) ->
     % Decompose N into two factors
     decompose(N, round(math:sqrt(N))).
@@ -75,7 +90,17 @@ decompose(N, M) ->
         _ -> decompose(N, M-1)
     end.
 
+%% Send a message to a random actor of the given list of actors
+send_to_random([], Msg) ->
+    erlang:display({error, no_more_actors, Msg});
+send_to_random(Actors, Msg) ->
+    % TODO: actually randomize this
+    [Actor|_] = Actors,
+    Actor ! Msg,
+    Actor.
+
 create_grids_specs(GridSize, W, H) ->
+    % Decompose the grid into multiple subgrid of size WxH
     create_grids_specs(GridSize, W, H, 0, 0, []).
 
 create_grids_specs(GridSize, W, _H, X, _Y, GridsSpecs)
@@ -109,69 +134,80 @@ get_size_of_resource(ManagerData, Pid) ->
     % The grid size is a static value and does not change over the
     % execution
     erlang:display({get_size_of_resource, Pid}),
-    {GridSize, _, _, _, _} = ManagerData,
+    {GridSize, _, _, _, _, _} = ManagerData,
     Pid ! {self(), get_size_of_resource, {GridSize, GridSize}},
     ManagerData.
 
 has_remaining_free_cells(ManagerData, Pid) ->
     % Ask the remaining free cells of every actor
-    {_, _, _, _, Actors} = ManagerData,
-    Ref = erlang:make_ref(),
-    lists:map(fun(Actor) -> Actor ! {self(), Ref, has_remaining_free_cells} end,
-              Actors),
+    %% {_, _, _, _, Actors} = ManagerData,
+    %% Ref = erlang:make_ref(),
+    %% lists:map(fun(Actor) -> Actor ! {self(), Ref, has_remaining_free_cells} end,
+    %%           Actors),
+    %% Pid ! {self(), has_remaining_free_cells,
+    %%        has_remaining_free_cells_gather_responses(length(Actors),
+    %%                                                  Ref, false)},
+    % The number of free cells is stored in the manager
     Pid ! {self(), has_remaining_free_cells,
-           has_remaining_free_cells_gather_responses(length(Actors),
-                                                     Ref, false)},
+           get_free_cells(ManagerData) > 0},
     ManagerData.
 
-has_remaining_free_cells_gather_responses(0, _, Res) ->
-    Res;
-has_remaining_free_cells_gather_responses(N, Ref, Res) ->
-    receive
-        {_Pid, Ref, has_remaining_free_cells, true} ->
-            has_remaining_free_cells_gather_responses(N-1, Ref, true);
-        {_Pid, Ref, has_remaining_free_cells, false} ->
-            has_remaining_free_cells_gather_responses(N-1, Ref, Res)
-    end.
+%% has_remaining_free_cells_gather_responses(0, _, Res) ->
+%%     Res;
+%% has_remaining_free_cells_gather_responses(N, Ref, Res) ->
+%%     receive
+%%         {_Pid, Ref, has_remaining_free_cells, true} ->
+%%             has_remaining_free_cells_gather_responses(N-1, Ref, true);
+%%         {_Pid, Ref, has_remaining_free_cells, false} ->
+%%             has_remaining_free_cells_gather_responses(N-1, Ref, Res)
+%%     end.
 
 get_grid_overview(ManagerData, _Pid) ->
     ManagerData. % TODO
 
-%% Send a message to a random actor of the given list of actors
-send_to_random([], Msg) ->
-    erlang:display({error, no_more_actors, Msg});
-send_to_random(Actors, Msg) ->
-    % TODO: actually randomize this
-    [Actor|_] = Actors,
-    Actor ! Msg,
-    Actor.
-
-reserve_cells({GridSize, TotalCells, W, H, Actors}, Pid, NumberOfCells)
-  when NumberOfCells > ?MAX_REQUEST * TotalCells ->
-    erlang:display({reserve_cells, fail, request_too_large, NumberOfCells}),
-    Pid ! {self(), reserve_cells, failed, request_too_large},
-    {GridSize, TotalCells, W, H, Actors};
 reserve_cells(ManagerData, Pid, NumberOfCells) ->
-    {_, _, _, _, Actors} = ManagerData,
-    Ref = erlang:make_ref(),
-    reserve_cells(Pid, Ref, Actors, NumberOfCells),
-    ManagerData.
-
-reserve_cells(Pid, _, [], _) ->
-    Pid ! {self(), reserve_cells, failed, not_enough_cells_available};
-reserve_cells(Pid, Ref, Actors, NumberOfCells) ->
-    Actor = send_to_random(Actors, {self(), Ref, reserve_cells, NumberOfCells}),
-    NewActors = lists:delete(Actor, Actors),
-    receive
-        {_, reserve_cells, success, Info} ->
-            % TODO: UnspecReqList, ReservationId
-            Pid ! {self(), reserve_cells, success, Info};
-        {_, reserve_cells, partial_success, Allocated} ->
-            % 'Allocated' cells have been allocated
-            reserve_cells(Pid, Ref, NewActors, NumberOfCells - Allocated);
-        {_, reserve_cells, failed, _} ->
-            reserve_cells(Pid, Ref, NewActors, NumberOfCells)
+    {GridSize, FreeCells, W, H, Actors, UnspecificRequests} = ManagerData,
+    if
+        NumberOfCells > GridSize*GridSize * ?MAX_REQUEST ->
+            Pid ! {self(), reserve_cells, failed, request_too_large},
+            ManagerData;
+        NumberOfCells > FreeCells ->
+            Pid ! {self(), reserve_cells, failed, not_enough_cells_available},
+            ManagerData;
+        true ->
+            {UnspecReqList, NextId} = get_unspecific_requests(ManagerData),
+            Pid ! {self(), reserve_cells, success, {self(), NextId}},
+            {GridSize, FreeCells - NumberOfCells,
+             W, H, Actors,
+             % TODO: don't concatenate: either prepend (but it might
+             % starve clients), or use erlang's priority system (with
+             % messages)
+             {UnspecReqList ++ [{NextId, NumberOfCells}], NextId}}
     end.
+
+%% reserve_cells({GridSize, FreeCells, W, H, Actors}, Pid, NumberOfCells)
+%%   when NumberOfCells > F
+
+%%     {_, _, _, _, Actors} = ManagerData,
+%%     Ref = erlang:make_ref(),
+%%     reserve_cells(Pid, Ref, Actors, NumberOfCells),
+%%     ManagerData.
+
+%% reserve_cells(Pid, _, [], _) ->
+%%     Pid ! {self(), reserve_cells, failed, not_enough_cells_available};
+%% reserve_cells(Pid, Ref, Actors, NumberOfCells) ->
+%%     Actor = send_to_random(Actors, {self(), Ref, reserve_cells, NumberOfCells}),
+%%     NewActors = lists:delete(Actor, Actors),
+%%     receive
+%%         {_, reserve_cells, success, Info} ->
+%%             % TODO: UnspecReqList, ReservationId
+%%             Pid ! {self(), reserve_cells, success, Info};
+%%         {_, reserve_cells, partial_success, Allocated} ->
+%%             % 'Allocated' cells have been allocated
+%%             reserve_cells(Pid, Ref, NewActors, NumberOfCells - Allocated);
+%%         {_, reserve_cells, failed, _} ->
+%%             reserve_cells(Pid, Ref, NewActors, NumberOfCells)
+%%     end.
 
 request_specific_cells(ManagerData, _Pid, _ReservationId, _Coordinates) ->
     ManagerData. % TODO
@@ -204,3 +240,30 @@ allocation_of_too_large_requests_fails_test() ->
                  reservation:reserve_cells(Pid, 401)),
     ?assertMatch({failed, request_too_large},
                  reservation:reserve_cells(Pid, 1000)).
+
+allocation_of_small_requests_ok_test() ->
+    Pid = initialize(100, 4),
+    
+    ?assertMatch({success, _},
+                 reservation:reserve_cells(Pid, 200)),
+    ?assertMatch({success, _},
+                 reservation:reserve_cells(Pid, 5)),
+    ?assertMatch({success, _},
+                 reservation:reserve_cells(Pid, 1)).
+
+has_remaining_free_cells_test() ->
+    Pid = initialize(100, 4),
+    
+    ?assertMatch(true, reservation:has_remaining_free_cells(Pid)),
+    
+    I = lists:seq(1, 1999),
+    
+    lists:foreach(fun(_) ->
+                    ?assertMatch({success, _},
+                                 reservation:reserve_cells(Pid, 5))
+                          end, I),
+    
+    ?assertMatch(true, reservation:has_remaining_free_cells(Pid)),
+    reservation:reserve_cells(Pid, 5),
+    
+    ?assertMatch(false, reservation:has_remaining_free_cells(Pid)).

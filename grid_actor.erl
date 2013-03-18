@@ -54,13 +54,30 @@ actor(Grid) ->
 has_remaining_free_cells(Grid, Pid, Ref) ->
     {_, _, FreeCells, _} = Grid,
     Pid ! {self(), Ref, has_remaining_free_cells, FreeCells > 0},
-    Grid. % TODO
+    Grid.
 
 get_grid_overview(Grid, _Pid) ->
     Grid. % TODO
 
-reserve_cells(Grid, _Pid, _NumberOfCells) ->
-    Grid. % TODO
+reserve_cells(Grid, _, _) ->
+    Grid.
+%% reserve_cells({Spec, Grid, FreeCells, UnspecificRequests}, Pid, NumberOfCells) 
+%%   when FreeCells = 0 ->
+%%     % No more cells available
+%%     Pid ! {self(), failed, not_more_cells_available},
+%%     {Spec, Grid, FreeCells, UnspecificRequests};
+%% reserve_cells({Spec, Grid, FreeCells, UnspecificRequests}, Pid, NumberOfCells) 
+%%   when NumberOfCells > FreeCells ->
+%%     % Partial allocation
+%%     reserve_cells({Spec, Grid, FreeCells, UnspecificRequests},
+%%                   Pid, FreeCells, partial_success);
+%% reserve_cells(Grid, Pid, NumberOfCells) ->
+%%     % Full allocation
+%%     reserve_cells(Grid, Pid, NumberOfCells, success).
+
+%% reserve_cells(Grid, Pid, NumberOfCells, Message) ->
+    
+
 
 request_specific_cells(Grid, _Pid, _ReservationId, _Coordinates) ->
     Grid. % TODO
