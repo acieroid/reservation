@@ -137,6 +137,15 @@ has_remaining_free_cells_gather_responses(N, Ref, Res) ->
 get_grid_overview(ManagerData, _Pid) ->
     ManagerData. % TODO
 
+%% Send a message to a random actor of the given list of actors
+send_to_random([], Msg) ->
+    erlang:display({error, no_more_actors, Msg});
+send_to_random(Actors, Msg) ->
+    % TODO: actually randomize this
+    [Actor|_] = Actors,
+    Actor ! Msg,
+    Actor.
+
 reserve_cells({GridSize, TotalCells, W, H, Actors}, Pid, NumberOfCells)
   when NumberOfCells > ?MAX_REQUEST * TotalCells ->
     erlang:display({reserve_cells, fail, request_too_large, NumberOfCells}),
@@ -145,30 +154,23 @@ reserve_cells({GridSize, TotalCells, W, H, Actors}, Pid, NumberOfCells)
 reserve_cells(ManagerData, Pid, NumberOfCells) ->
     {_, _, _, _, Actors} = ManagerData,
     Ref = erlang:make_ref(),
-    Actor = send_to_random(Actors, {self(), Ref, reserve_cells, NumberOfCells}),
-    reserve_cells_handle_response(lists:delete(Actor, Actors),
-                                  Pid, Ref),
+    reserve_cells(Pid, Ref, Actors, NumberOfCells),
     ManagerData.
 
-send_to_random([], Msg) ->
-    erlang:display({error, no_more_actors, Msg});
-send_to_random(Actors, Msg) ->
-    % TODO
-    [Actor|_] = Actors,
-    Actor ! Msg,
-    Actor.
-
-reserve_cells_handle_response(_Actors, Pid, _Ref) ->
+reserve_cells(Pid, _, [], _) ->
+    Pid ! {self(), reserve_cells, failed, not_enough_cells_available};
+reserve_cells(Pid, Ref, Actors, NumberOfCells) ->
+    Actor = send_to_random(Actors, {self(), Ref, reserve_cells, NumberOfCells}),
+    NewActors = lists:delete(Actor, Actors),
     receive
         {_, reserve_cells, success, Info} ->
             % TODO: UnspecReqList, ReservationId
             Pid ! {self(), reserve_cells, success, Info};
-        {_, reserve_cells, partial_succes, _} ->
-            % TODO
-            foo;
+        {_, reserve_cells, partial_success, Allocated} ->
+            % 'Allocated' cells have been allocated
+            reserve_cells(Pid, Ref, NewActors, NumberOfCells - Allocated);
         {_, reserve_cells, failed, _} ->
-            % TODO
-            bar
+            reserve_cells(Pid, Ref, NewActors, NumberOfCells)
     end.
 
 request_specific_cells(ManagerData, _Pid, _ReservationId, _Coordinates) ->
