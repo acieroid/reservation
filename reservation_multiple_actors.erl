@@ -17,7 +17,7 @@
 
 %%
 %% Constants
-%% 
+%%
 -define(MAX_REQUEST, 0.02). % A request can be max. 2% of the number of cells
 
 %%
@@ -162,7 +162,7 @@ reserve_cells(ManagerData, Pid, NumberOfCells) ->
     end.
 
 request_specific_cells(ManagerData, Pid, ReservationId, Coordinates) ->
-    {GridSize, _FreeCells, _W, _H, Actors, UnspecificRequests} = ManagerData,
+    {GridSize, FreeCells, W, H, Actors, {UnspecificRequests, NextId}} = ManagerData,
     {X, Y, ReserveWidth, ReserveHeight} = Coordinates,
     Request = lists:keyfind(ReservationId, 1, UnspecificRequests),
     if
@@ -175,13 +175,17 @@ request_specific_cells(ManagerData, Pid, ReservationId, Coordinates) ->
         true ->
             % request found, pass it to all the actors
             Ref = erlang:make_ref(),
-            send_to_all(Actors, {self(), Ref, request_specific_cells, Request}),
+            send_to_all(Actors,
+                        {self(), Ref, request_specific_cells,
+                         ReservationId, Coordinates}),
+            NewUnspecificRequests = lists:keydelete(ReservationId, 1, UnspecificRequests),
             Status = request_specific_cells_gather_responses(Actors, Ref, success),
-            Pid ! {self(), request_specific_cells, ReservationId, Status}
-    end,
-    ManagerData. % TODO
+            Pid ! {self(), request_specific_cells, ReservationId, Status},
+            {GridSize, FreeCells, W, H, Actors, {NewUnspecificRequests, NextId}}
+    end.
 
 request_specific_cells_gather_responses([], _, Res) ->
+    % TODO: if any of the actors failed to allocate this, deallocate
     Res;
 request_specific_cells_gather_responses(Actors, Ref, Res) ->
     {Actor, NewRes} =
@@ -191,7 +195,7 @@ request_specific_cells_gather_responses(Actors, Ref, Res) ->
             {Act, Ref, request_specific_cells, failed} ->
                 {Act, failed}
         end,
-    request_specific_cells_gather_responses(lists:delete(A, Actors),
+    request_specific_cells_gather_responses(lists:delete(Actor, Actors),
                                             Ref, NewRes).
 
 %%
@@ -203,7 +207,7 @@ initialization_returns_pid_test() ->
 
 initialization_consistency_test() ->
     Pid = initialize(100, 4),
-    
+
     GridDimensions = reservation:get_size_of_resource(Pid),
     {Width, Height} = GridDimensions,
     ?assertMatch(100, (Width = Height)).
@@ -215,7 +219,7 @@ empty_has_remaining_free_cells_test() ->
 
 allocation_of_too_large_requests_fails_test() ->
     Pid = initialize(100, 4),
-    
+
     ?assertMatch({failed, request_too_large},
                  reservation:reserve_cells(Pid, 201)),
     ?assertMatch({failed, request_too_large},
@@ -225,7 +229,7 @@ allocation_of_too_large_requests_fails_test() ->
 
 allocation_of_small_requests_ok_test() ->
     Pid = initialize(100, 4),
-    
+
     ?assertMatch({success, _},
                  reservation:reserve_cells(Pid, 200)),
     ?assertMatch({success, _},
@@ -235,17 +239,35 @@ allocation_of_small_requests_ok_test() ->
 
 has_remaining_free_cells_test() ->
     Pid = initialize(100, 4),
-    
+
     ?assertMatch(true, reservation:has_remaining_free_cells(Pid)),
-    
+
     I = lists:seq(1, 1999),
-    
+
     lists:foreach(fun(_) ->
                     ?assertMatch({success, _},
                                  reservation:reserve_cells(Pid, 5))
                           end, I),
-    
+
     ?assertMatch(true, reservation:has_remaining_free_cells(Pid)),
     reservation:reserve_cells(Pid, 5),
-    
+
     ?assertMatch(false, reservation:has_remaining_free_cells(Pid)).
+
+
+no_specific_cells_outside_of_the_grid_test() ->
+    Pid = initialize(100, 4),
+
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 5),
+
+    % start counting from 1
+    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {0, 0, 5, 1})),
+
+    % not outside of the board
+    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {100, 100, 5, 1})),
+    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {  1, 101, 5, 1})),
+    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {101,   1, 5, 1})),
+    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {100,  97, 1, 5})),
+
+    % but at the last row and without leaving the grid it has to work
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {100, 95, 1, 5})).
