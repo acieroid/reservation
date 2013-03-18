@@ -85,7 +85,7 @@ send_to_random(Actors, Msg) ->
     Actor.
 
 %% Send a message to all the actors
-send_to_all([], Msg) ->
+send_to_all([], _) ->
     done;
 send_to_all(Actors, Msg) ->
     lists:map(fun (Actor) ->
@@ -162,7 +162,7 @@ reserve_cells(ManagerData, Pid, NumberOfCells) ->
     end.
 
 request_specific_cells(ManagerData, Pid, ReservationId, Coordinates) ->
-    {GridSize, FreeCells, W, H, Actors, UnspecificRequests} = ManagerData,
+    {GridSize, _FreeCells, _W, _H, Actors, UnspecificRequests} = ManagerData,
     {X, Y, ReserveWidth, ReserveHeight} = Coordinates,
     Request = lists:keyfind(ReservationId, 1, UnspecificRequests),
     if
@@ -181,17 +181,17 @@ request_specific_cells(ManagerData, Pid, ReservationId, Coordinates) ->
     end,
     ManagerData. % TODO
 
-request_specific_cells_gather_responses([], Ref, Res) ->
+request_specific_cells_gather_responses([], _, Res) ->
     Res;
 request_specific_cells_gather_responses(Actors, Ref, Res) ->
     {Actor, NewRes} =
         receive
-            {Actor, Ref, request_specific_cells, success} ->
-                {Actor, Res};
-            {Actor, Ref, request_specific_cells, failed} ->
-                {Actor, failed}
+            {Act, Ref, request_specific_cells, success} ->
+                {Act, Res};
+            {Act, Ref, request_specific_cells, failed} ->
+                {Act, failed}
         end,
-    request_specific_cells_gather_responses(lists:delete(Actor, Actors),
+    request_specific_cells_gather_responses(lists:delete(A, Actors),
                                             Ref, NewRes).
 
 %%
