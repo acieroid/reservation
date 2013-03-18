@@ -52,6 +52,8 @@ actor(Grid) ->
             erlang:display({unexpectedMessage, actor, Else}),
             NewGrid = Grid
     end,
+    {_, _, _, FreeCells, _} = Grid,
+    erlang:display(FreeCells),
     actor(NewGrid).
 
 %%
@@ -168,9 +170,9 @@ request_specific_cells(Grid, Pid, ReservationId, Coordinates) ->
 %% but also make certain assumption of its implementation.
 %% Thus, they need to be reused with care.
 %%
-initialization_returns_pid_test() ->
-    Pid = initialize(100),
-    ?assert(is_pid(Pid)).
+%% initialization_returns_pid_test() ->
+%%     Pid = initialize(100),
+%%     ?assert(is_pid(Pid)).
 
 initialization_consistency_test() ->
     Pid = initialize(100),
@@ -280,7 +282,7 @@ no_double_allocation_of_cells_test() ->
     % no double allocation
     ?assertMatch(failed, reservation:request_specific_cells(FPid2, RId2, {1, 1, 5, 1})),
     % but ok at some other place
-    ?assertMatch(success, reservation:request_specific_cells(FPid2, RId2, {6, 1, 5, 1})).
+   ?assertMatch(success, reservation:request_specific_cells(FPid2, RId2, {6, 1, 5, 1})).
     
     
 no_specific_cells_outside_of_the_grid_test() ->

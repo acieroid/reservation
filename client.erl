@@ -74,7 +74,7 @@ do_allocation({AllocCells, {Row, Column}}, EntryPointPid) ->
     Result = do_allocation({AllocCells}, EntryPointPid),
     case Result of
         {success, {FollowUpPid, ReservationId}} -> 
-            reservation:get_grid_overview(FollowUpPid),
+            %reservation:get_grid_overview(FollowUpPid),
             Result2 = reservation:request_specific_cells(FollowUpPid, ReservationId, {Row, Column, AllocCells, 1}),
             {Result2, {ignored, FollowUpPid, ReservationId, {Row, Column}}};
         Else ->

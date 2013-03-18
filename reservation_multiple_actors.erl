@@ -43,19 +43,19 @@ manager(ManagerData) ->
     NewManagerData =
         receive
             {Pid, get_size_of_resource} ->
-                erlang:display({received, get_size_of_resource}),
+                %erlang:display({received, get_size_of_resource}),
                 get_size_of_resource(ManagerData, Pid);
             {Pid, has_remaining_free_cells} ->
-                erlang:display({received, has_remaining_free_cells}),
+                %erlang:display({received, has_remaining_free_cells}),
                 has_remaining_free_cells(ManagerData, Pid);
             {Pid, get_grid_overview} ->
-                erlang:display({received, get_grid_overview}),
+                %erlang:display({received, get_grid_overview}),
                 get_grid_overview(ManagerData, Pid);
             {Pid, reserve_cells, NumberOfCells} ->
-                erlang:display({received, reserve_cells}),
+                %erlang:display({received, reserve_cells}),
                 reserve_cells(ManagerData, Pid, NumberOfCells);
             {Pid, request_specific_cells, ReservationId, Coordinates} ->
-                erlang:display({received, reserve_cells}),
+                %erlang:display({received, reserve_cells}),
                 request_specific_cells(ManagerData, Pid, ReservationId, Coordinates);
             Else ->
                 erlang:display({unexpected_message, manager, Else})
@@ -126,7 +126,6 @@ create_grids_specs(GridSize, W, H, X, Y, GridsSpecs) ->
 get_size_of_resource(ManagerData, Pid) ->
     % The grid size is a static value and does not change over the
     % execution
-    erlang:display({get_size_of_resource, Pid}),
     {GridSize, _, _, _, _, _} = ManagerData,
     Pid ! {self(), get_size_of_resource, {GridSize, GridSize}},
     ManagerData.
@@ -180,14 +179,24 @@ request_specific_cells(ManagerData, Pid, ReservationId, Coordinates) ->
                          ReservationId, Coordinates}),
             NewUnspecificRequests = lists:keydelete(ReservationId, 1, UnspecificRequests),
             Status = request_specific_cells_gather_responses(Actors, Ref, success),
+            case Status of
+                false ->
+                    % if the allocation failed, deallocate all the
+                    % sub-allocation that did not fail
+                    send_to_all(Actors,
+                                {self(), Ref, release_specific_cells,
+                                 ReservationId, Coordinates}),
+                    release_specific_cells_gather_responses(Actors, Ref);
+                _ -> nothing
+            end,
             Pid ! {self(), request_specific_cells, ReservationId, Status},
             {GridSize, FreeCells, W, H, Actors, {NewUnspecificRequests, NextId}}
     end.
 
 request_specific_cells_gather_responses([], _, Res) ->
-    % TODO: if any of the actors failed to allocate this, deallocate
     Res;
 request_specific_cells_gather_responses(Actors, Ref, Res) ->
+    erlang:display({request_specific_cells, gathering_responses, Actors}),
     {Actor, NewRes} =
         receive
             {Act, Ref, request_specific_cells, success} ->
@@ -197,6 +206,15 @@ request_specific_cells_gather_responses(Actors, Ref, Res) ->
         end,
     request_specific_cells_gather_responses(lists:delete(Actor, Actors),
                                             Ref, NewRes).
+
+release_specific_cells_gather_responses([], _) ->
+    done;
+release_specific_cells_gather_responses(Actors, Ref) ->
+    erlang:display({release_specific_cells, gathering_responses, Actors}),
+    receive
+        {Actor, Ref, release_specific_cells, ok} ->
+            release_specific_cells_gather_responses(lists:delete(Actor, Actors), Ref)
+    end.
 
 %%
 %% Test functions

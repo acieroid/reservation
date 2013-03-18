@@ -46,6 +46,8 @@ actor(Grid) ->
                 reserve_cells(Grid, Pid, Ref, NumberOfCells);
             {Pid, Ref, request_specific_cells, ReservationId, Coordinates} ->
                 request_specific_cells(Grid, Pid, Ref, ReservationId, Coordinates);
+            {Pid, Ref, release_specific_cells, ReservationId, Coordinates} ->
+                release_specific_cells(Grid, Pid, Ref, ReservationId, Coordinates);
             Else ->
                 erlang:display({unexpected_message, grid_actor, Else})
         end,
@@ -105,6 +107,23 @@ mark_region_reserved({X, Y, Width, Height}, GridContent) ->
             NewGrid
     end.
 
+mark_region_empty({X, Y, Width, Height}, GridContent) ->
+    Row = lists:nth(Y, GridContent),
+    EmptyCells = [ empty || _ <- lists:seq(1, Width) ],
+
+    {Begin, Rest} = lists:split(X - 1, Row),
+    NewRow = Begin ++ EmptyCells ++ lists:nthtail(Width, Rest),
+
+    NewGrid = lists:sublist(GridContent, Y - 1) ++ [NewRow] ++ lists:nthtail(Y, GridContent),
+
+    if
+        Y < Height ->
+            mark_region_reserved({X, Y + 1, Width, Height}, NewGrid);
+        true ->
+            NewGrid
+    end.
+
+
 request_specific_cells(Grid, Pid, Ref, _ReservationId, Coordinates) ->
     {Specs, Content, FreeCells, UnspecificRequests} = Grid,
     {NewGrid, Status} =
@@ -123,6 +142,23 @@ request_specific_cells(Grid, Pid, Ref, _ReservationId, Coordinates) ->
                         {{Specs, NewContent, FreeCells, UnspecificRequests},
                          success}
                 end
+        end,
+    Pid ! {self(), Ref, request_specific_cells, Status},
+    NewGrid.
+
+
+release_specific_cells(Grid, Pid, Ref, _ReservationId, Coordinates) ->
+    {Specs, Content, FreeCells, UnspecificRequests} = Grid,
+    {NewGrid, Status} =
+        case intersection(Grid, Coordinates) of
+            none ->
+                %% Nothing to de-allocate in this actor
+                {Grid, success};
+            IntersectionCoordinates ->
+                NewContent = mark_region_empty(IntersectionCoordinates,
+                                               Content),
+                {{Specs, NewContent, FreeCells, UnspecificRequests},
+                 success}
         end,
     Pid ! {self(), Ref, request_specific_cells, Status},
     NewGrid.

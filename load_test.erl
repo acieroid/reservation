@@ -19,8 +19,9 @@
 %%
 start() ->
     erlang:display("Initialize Reservation System"),
+    %Pid = reservation_multiple_actors:initialize(300, 4),
     Pid = reservation_single_actor:initialize(300),
-    
+
     erlang:display("Initialize Clients"),
     _C1 = client:start(20000, Pid, self(), {5, 100, 100}),
     _C2 = client:start(20000, Pid, self(), {5, 100, 100}),
@@ -34,4 +35,5 @@ start() ->
     receive {_, done} -> done end,
     receive {_, done} -> done end,
     
+    erlang:display({has_free_cells, reservation:has_remaining_free_cells(Pid)}),
     erlang:display("Done").
