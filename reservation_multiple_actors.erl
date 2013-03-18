@@ -183,6 +183,7 @@ request_specific_cells(ManagerData, Pid, ReservationId, Coordinates) ->
                 false ->
                     % if the allocation failed, deallocate all the
                     % sub-allocation that did not fail
+                    % TODO: should we keep the unspecific request in the list?
                     send_to_all(Actors,
                                 {self(), Ref, release_specific_cells,
                                  ReservationId, Coordinates}),
@@ -289,3 +290,25 @@ no_specific_cells_outside_of_the_grid_test() ->
 
     % but at the last row and without leaving the grid it has to work
     ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {100, 95, 1, 5})).
+
+reserve_cells_between_subgrids_test() ->
+    Pid = initialize(100, 4),
+
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {48, 48, 4, 4})).
+
+
+correctly_release_cells_when_failing_test() ->
+    Pid = initialize(100, 4),
+
+    % reserve cells on the corner of a subgrid
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {51, 51, 4, 4})),
+
+    % reserve cells between subgrids (should fail)
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
+    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {48, 48, 4, 4})),
+
+    % reserve cells on another subgrid
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {46, 46, 4, 4})).

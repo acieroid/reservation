@@ -123,7 +123,6 @@ mark_region_empty({X, Y, Width, Height}, GridContent) ->
             NewGrid
     end.
 
-
 request_specific_cells(Grid, Pid, Ref, _ReservationId, Coordinates) ->
     {Specs, Content, FreeCells, UnspecificRequests} = Grid,
     {NewGrid, Status} =
@@ -145,7 +144,6 @@ request_specific_cells(Grid, Pid, Ref, _ReservationId, Coordinates) ->
         end,
     Pid ! {self(), Ref, request_specific_cells, Status},
     NewGrid.
-
 
 release_specific_cells(Grid, Pid, Ref, _ReservationId, Coordinates) ->
     {Specs, Content, FreeCells, UnspecificRequests} = Grid,
