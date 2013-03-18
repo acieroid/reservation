@@ -156,3 +156,7 @@ initialization_consistency_test() ->
     GridDimensions = reservation:get_size_of_resource(Pid),
     {Width, Height} = GridDimensions,
     ?assertMatch(100, (Width = Height)).
+
+empty_has_remaining_free_cells_test() ->
+    Pid = initialize(100, 4),
+    ?assertMatch(true, reservation:has_remaining_free_cells(Pid)).
