@@ -110,7 +110,7 @@ get_size_of_resource(ManagerData, Pid) ->
     % execution
     erlang:display({get_size_of_resource, Pid}),
     {GridSize, _, _, _, _} = ManagerData,
-    Pid ! {self(), get_size_of_resource, GridSize},
+    Pid ! {self(), get_size_of_resource, {GridSize, GridSize}},
     ManagerData.
 
 has_remaining_free_cells(ManagerData, Pid) ->
@@ -142,3 +142,17 @@ reserve_cells(ManagerData, _Pid, _NumberOfCells) ->
 
 request_specific_cells(ManagerData, _Pid, _ReservationId, _Coordinates) ->
     ManagerData. % TODO
+
+%%
+%% Test functions
+%%
+initialization_returns_pid_test() ->
+    Pid = initialize(100, 4),
+    ?assert(is_pid(Pid)).
+
+initialization_consistency_test() ->
+    Pid = initialize(100, 4),
+    
+    GridDimensions = reservation:get_size_of_resource(Pid),
+    {Width, Height} = GridDimensions,
+    ?assertMatch(100, (Width = Height)).

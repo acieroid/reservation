@@ -4,7 +4,7 @@ BEAM	= $(ERL_SRC:.erl=.beam)
 all: $(BEAM) test
 
 test:
-	./run.sh reservation_single_actor test
+	./run.sh reservation_multiple_actors test
 
 clean:
 	rm *.beam
