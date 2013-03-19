@@ -19,14 +19,15 @@
 %%
 %% API functions
 %%
-start({W, H, X, Y}) ->
-    Grid = create_empty_grid(W, H, X, Y),
+start({X, Y, W, H}) ->
+    erlang:display({actor_created, X, Y, W, H}),
+    Grid = create_empty_grid(X, Y, W, H),
     actor(Grid).
 
 %%
 %% Local functions
 %%
-create_empty_grid(W, H, X, Y) ->
+create_empty_grid(X, Y, W, H) ->
     FreeCells = W * H,
     EmptyRow = [ empty || _ <- lists:seq(1, W) ],
     Grid = [ EmptyRow || _ <- lists:seq(1, H) ],
@@ -76,9 +77,10 @@ intersection(Grid, Coordinates) ->
         true ->
             IX = max(CX, X),
             IY = max(CY, Y),
-            IW = CW - (IX - CX),
-            IH = CH - (IY - CY),
-            {IX - X, IY - Y, IW, IH}
+            IW = CW - (IX - CX) - 1,
+            IH = CH - (IY - CY) - 1,
+            %% Erlang indexes start at 1
+            {IX - X + 1, IY - Y + 1, IW, IH}
     end.
 
 region_is_empty({X, Y, Width, Height}, GridContent) ->
@@ -93,6 +95,7 @@ region_is_empty({X, Y, Width, Height}, GridContent) ->
     end.
 
 mark_region_reserved({X, Y, Width, Height}, GridContent) ->
+    erlang:display({mark_region_reserved, X, Y, Width, Height}),
     Row = lists:nth(Y, GridContent),
     ReservedCells = [ reserved || _ <- lists:seq(1, Width) ],
 
@@ -132,6 +135,7 @@ request_specific_cells(Grid, Pid, Ref, _ReservationId, Coordinates) ->
                 %% Nothing to allocate in this actor
                 {Grid, success};
             IntersectionCoordinates ->
+                erlang:display({intersection, IntersectionCoordinates}),
                 case region_is_empty(IntersectionCoordinates, Content) of
                     false ->
                         %% Not empty, cannot allocate
