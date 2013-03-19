@@ -94,7 +94,7 @@ send_to_all(Actors, Msg) ->
 
 %% Decompose the grid into multiple subgrid of size WxH
 create_grids_specs(GridSize, W, H) ->
-    create_grids_specs(GridSize, W, H, 0, 0, []).
+    create_grids_specs(GridSize, W, H, 1, 1, []).
 
 create_grids_specs(GridSize, W, _H, X, _Y, GridsSpecs)
   when X+W > GridSize ->
@@ -137,8 +137,34 @@ has_remaining_free_cells(ManagerData, Pid) ->
            FreeCells > 0},
     ManagerData.
 
-get_grid_overview(ManagerData, _Pid) ->
-    ManagerData. % TODO
+get_grid_overview(ManagerData, Pid) ->
+    {GridSize, _, _, _, Actors, _} = ManagerData,
+    Ref = make_ref(),
+    send_to_all(Actors, {self(), Ref, get_grid_overview}),
+    Content = get_grid_overview_gather_responses(Actors, Ref,
+                                                 create_empty_grid_content(GridSize)),
+    Pid ! {self(), get_grid_overview, Content, {GridSize, GridSize}},
+    ManagerData.
+
+create_empty_grid_content(GridSize) ->
+    W = H = GridSize,
+    EmptyRow = [ empty || _ <- lists:seq(1, W) ],
+    Content = [ EmptyRow || _ <- lists:seq(1, H) ],
+    Content.
+
+copy_region(Content, SubContent, X, Y, W, H) ->
+    Content. % TODO
+
+get_grid_overview_gather_responses([], _, Content) ->
+    Content;
+get_grid_overview_gather_responses(Actors, Ref, Content) ->
+    receive
+        {Actor, Ref, get_grid_overview, SubContent, {X, Y, W, H}} ->
+            NewContent = copy_region(Content, SubContent, X, Y, W, H),
+            get_grid_overview_gather_responses(lists:delete(Actor, Actors),
+                                               Ref,
+                                               NewContent)
+    end.
 
 reserve_cells(ManagerData, Pid, NumberOfCells) ->
     {GridSize, FreeCells, W, H, Actors, UnspecificRequests} = ManagerData,
@@ -173,7 +199,7 @@ request_specific_cells(ManagerData, Pid, ReservationId, Coordinates) ->
             ManagerData;
         true ->
             % request found, pass it to all the actors
-            Ref = erlang:make_ref(),
+            Ref = make_ref(),
             send_to_all(Actors,
                         {self(), Ref, request_specific_cells,
                          ReservationId, Coordinates}),

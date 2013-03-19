@@ -30,7 +30,6 @@ create_empty_grid(W, H, X, Y) ->
     FreeCells = W * H,
     EmptyRow = [ empty || _ <- lists:seq(1, W) ],
     Grid = [ EmptyRow || _ <- lists:seq(1, H) ],
-    % TODO: what's the purpose of this?
     UnspecificRequests = {[], 0},
 
     {{X, Y, W, H}, Grid, FreeCells, UnspecificRequests}.
@@ -58,8 +57,10 @@ has_remaining_free_cells(Grid, Pid, Ref) ->
     Pid ! {self(), Ref, has_remaining_free_cells, FreeCells > 0},
     Grid.
 
-get_grid_overview(Grid, _Pid, _Ref) ->
-    Grid. % TODO
+get_grid_overview(Grid, Pid, Ref) ->
+    {Specs, Content, _, _} = Grid,
+    Pid ! {self(), Ref, get_grid_overview, Content, Specs},
+    Grid.
 
 reserve_cells(Grid, _Pid, _Ref, _NumberOfCells) ->
     Grid. % TODO
@@ -80,13 +81,13 @@ intersection(Grid, Coordinates) ->
             {IX - X, IY - Y, IW, IH}
     end.
 
-region_is_empty({X, Y, Width, Heigth}, GridContent) ->
+region_is_empty({X, Y, Width, Height}, GridContent) ->
     Row = lists:nth(Y, GridContent),
     RelevantCells = lists:sublist(Row, X, X + Width),
     AllCellsEmpty = lists:all(fun(E) -> E == empty end, RelevantCells),
     if
-        AllCellsEmpty and Y < Heigth ->
-            region_is_empty({X, Y + 1, Width, Heigth}, GridContent);
+        AllCellsEmpty and Y < Height ->
+            region_is_empty({X, Y + 1, Width, Height}, GridContent);
         true ->
             AllCellsEmpty
     end.
