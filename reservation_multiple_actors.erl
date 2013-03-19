@@ -190,7 +190,6 @@ reserve_cells(ManagerData, Pid, NumberOfCells) ->
 request_specific_cells(ManagerData, Pid, ReservationId, Coordinates) ->
     {GridSize, FreeCells, W, H, Actors, {UnspecificRequests, NextId}} = ManagerData,
     {X, Y, ReserveWidth, ReserveHeight} = Coordinates,
-    erlang:display({request_specific_cells, Coordinates}),
     Request = lists:keyfind(ReservationId, 1, UnspecificRequests),
     if
         not Request;
@@ -201,14 +200,12 @@ request_specific_cells(ManagerData, Pid, ReservationId, Coordinates) ->
             ManagerData;
         true ->
             % request found, pass it to all the actors
-            erlang:display(request_found),
             Ref = make_ref(),
             send_to_all(Actors,
                         {self(), Ref, request_specific_cells,
                          ReservationId, Coordinates}),
             NewUnspecificRequests = lists:keydelete(ReservationId, 1, UnspecificRequests),
             Status = request_specific_cells_gather_responses(Actors, Ref, success),
-            erlang:display({status, Status}),
             case Status of
                 false ->
                     % if the allocation failed, deallocate all the
@@ -227,7 +224,6 @@ request_specific_cells(ManagerData, Pid, ReservationId, Coordinates) ->
 request_specific_cells_gather_responses([], _, Res) ->
     Res;
 request_specific_cells_gather_responses(Actors, Ref, Res) ->
-    erlang:display({request_specific_cells, gathering_responses, Actors}),
     {Actor, NewRes} =
         receive
             {Act, Ref, request_specific_cells, success} ->
@@ -235,14 +231,12 @@ request_specific_cells_gather_responses(Actors, Ref, Res) ->
             {Act, Ref, request_specific_cells, failed} ->
                 {Act, failed}
         end,
-    erlang:display({request_for_actor, NewRes}),
     request_specific_cells_gather_responses(lists:delete(Actor, Actors),
                                             Ref, NewRes).
 
 release_specific_cells_gather_responses([], _) ->
     done;
 release_specific_cells_gather_responses(Actors, Ref) ->
-    erlang:display({release_specific_cells, gathering_responses, Actors}),
     receive
         {Actor, Ref, release_specific_cells, ok} ->
             release_specific_cells_gather_responses(lists:delete(Actor, Actors), Ref)
@@ -251,82 +245,82 @@ release_specific_cells_gather_responses(Actors, Ref) ->
 %%
 %% Test functions
 %%
-%% initialization_returns_pid_test() ->
-%%     Pid = initialize(100, 4),
-%%     ?assert(is_pid(Pid)).
+initialization_returns_pid_test() ->
+    Pid = initialize(100, 4),
+    ?assert(is_pid(Pid)).
 
-%% initialization_consistency_test() ->
-%%     Pid = initialize(100, 4),
+initialization_consistency_test() ->
+    Pid = initialize(100, 4),
 
-%%     GridDimensions = reservation:get_size_of_resource(Pid),
-%%     {Width, Height} = GridDimensions,
-%%     ?assertMatch(100, (Width = Height)).
+    GridDimensions = reservation:get_size_of_resource(Pid),
+    {Width, Height} = GridDimensions,
+    ?assertMatch(100, (Width = Height)).
 
-%% empty_has_remaining_free_cells_test() ->
-%%     Pid = initialize(100, 4),
-%%     ?assertMatch(true, reservation:has_remaining_free_cells(Pid)).
-
-
-%% allocation_of_too_large_requests_fails_test() ->
-%%     Pid = initialize(100, 4),
-
-%%     ?assertMatch({failed, request_too_large},
-%%                  reservation:reserve_cells(Pid, 201)),
-%%     ?assertMatch({failed, request_too_large},
-%%                  reservation:reserve_cells(Pid, 401)),
-%%     ?assertMatch({failed, request_too_large},
-%%                  reservation:reserve_cells(Pid, 1000)).
-
-%% allocation_of_small_requests_ok_test() ->
-%%     Pid = initialize(100, 4),
-
-%%     ?assertMatch({success, _},
-%%                  reservation:reserve_cells(Pid, 200)),
-%%     ?assertMatch({success, _},
-%%                  reservation:reserve_cells(Pid, 5)),
-%%     ?assertMatch({success, _},
-%%                  reservation:reserve_cells(Pid, 1)).
-
-%% has_remaining_free_cells_test() ->
-%%     Pid = initialize(100, 4),
-
-%%     ?assertMatch(true, reservation:has_remaining_free_cells(Pid)),
-
-%%     I = lists:seq(1, 1999),
-
-%%     lists:foreach(fun(_) ->
-%%                     ?assertMatch({success, _},
-%%                                  reservation:reserve_cells(Pid, 5))
-%%                           end, I),
-
-%%     ?assertMatch(true, reservation:has_remaining_free_cells(Pid)),
-%%     reservation:reserve_cells(Pid, 5),
-
-%%     ?assertMatch(false, reservation:has_remaining_free_cells(Pid)).
+empty_has_remaining_free_cells_test() ->
+    Pid = initialize(100, 4),
+    ?assertMatch(true, reservation:has_remaining_free_cells(Pid)).
 
 
-%% no_specific_cells_outside_of_the_grid_test() ->
-%%     Pid = initialize(100, 4),
+allocation_of_too_large_requests_fails_test() ->
+    Pid = initialize(100, 4),
 
-%%     {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 5),
+    ?assertMatch({failed, request_too_large},
+                 reservation:reserve_cells(Pid, 201)),
+    ?assertMatch({failed, request_too_large},
+                 reservation:reserve_cells(Pid, 401)),
+    ?assertMatch({failed, request_too_large},
+                 reservation:reserve_cells(Pid, 1000)).
 
-%%     % start counting from 1
-%%     ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {0, 0, 5, 1})),
+allocation_of_small_requests_ok_test() ->
+    Pid = initialize(100, 4),
 
-%%     % not outside of the board
-%%     ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {100, 100, 5, 1})),
-%%     ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {  1, 101, 5, 1})),
-%%     ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {101,   1, 5, 1})),
-%%     ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {100,  97, 1, 5})),
+    ?assertMatch({success, _},
+                 reservation:reserve_cells(Pid, 200)),
+    ?assertMatch({success, _},
+                 reservation:reserve_cells(Pid, 5)),
+    ?assertMatch({success, _},
+                 reservation:reserve_cells(Pid, 1)).
 
-%%     % but at the last row and without leaving the grid it has to work
-%%     ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {100, 95, 1, 5})).
+has_remaining_free_cells_test() ->
+    Pid = initialize(100, 4),
 
-%% reserve_cells_between_subgrids_test() ->
-%%     Pid = initialize(100, 4),
+    ?assertMatch(true, reservation:has_remaining_free_cells(Pid)),
 
-%%     {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
-%%     ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {48, 48, 4, 4})).
+    I = lists:seq(1, 1999),
+
+    lists:foreach(fun(_) ->
+                    ?assertMatch({success, _},
+                                 reservation:reserve_cells(Pid, 5))
+                          end, I),
+
+    ?assertMatch(true, reservation:has_remaining_free_cells(Pid)),
+    reservation:reserve_cells(Pid, 5),
+
+    ?assertMatch(false, reservation:has_remaining_free_cells(Pid)).
+
+
+no_specific_cells_outside_of_the_grid_test() ->
+    Pid = initialize(100, 4),
+
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 5),
+
+    % start counting from 1
+    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {0, 0, 5, 1})),
+
+    % not outside of the board
+    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {100, 100, 5, 1})),
+    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {  1, 101, 5, 1})),
+    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {101,   1, 5, 1})),
+    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {100,  97, 1, 5})),
+
+    % but at the last row and without leaving the grid it has to work
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {100, 95, 1, 5})).
+
+reserve_cells_between_subgrids_test() ->
+    Pid = initialize(100, 4),
+
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {48, 48, 4, 4})).
 
 correctly_release_cells_when_failing_test() ->
     Pid = initialize(100, 4),
