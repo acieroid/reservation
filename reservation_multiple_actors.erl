@@ -352,9 +352,18 @@ correctly_release_cells_when_failing_test() ->
     {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
     ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {46, 46, 4, 4})).
 
+reserve_cells_simple_test() ->
+    Pid = initialize(100, 4),
 
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {1, 1, 4, 4})),
+
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {10, 10, 4, 4})).
+
+    
 grid_overview_test() ->
-    Pid = initialize(20, 4),
+    Pid = initialize(20, 1),
 
     {Grid, _} = reservation:get_grid_overview(Pid),
 
@@ -366,11 +375,15 @@ grid_overview_test() ->
                   end, Grid),
 
 
+    reservation:write_grid_to_file(Pid, "/tmp/foo.txt"),
+
     {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 1),
     Cells = {1, 1, 1, 1},
     ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, Cells)),
 
     {GridWithOne, _} = reservation:get_grid_overview(Pid),
+
+    reservation:write_grid_to_file(Pid, "/tmp/bar.txt"),
 
     [FirstRow | RemainingRows] = GridWithOne,
     [First | RemainingRow] = FirstRow,
