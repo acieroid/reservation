@@ -76,8 +76,16 @@ intersection(Grid, Coordinates) ->
         true ->
             IX = max(CX, X),
             IY = max(CY, Y),
-            IW = CW - (IX - CX) - ((CX + CW) - (X + W)) - 1,
-            IH = CH - (IY - CY) - ((CY + CH) - (Y + H)) - 1,
+            IW = CW - (IX - CX) -
+                if
+                    CX + CW > X + W -> ((CX + CW) - (X + W));
+                    true -> 0
+                end,
+            IH = CH - (IY - CY) -
+                if
+                    CY + CH > Y + H -> ((CY + CH) - (Y + H));
+                    true -> 0
+                end,
             %% Erlang indexes start at 1
             {IX - X + 1, IY - Y + 1, IW, IH}
     end.
@@ -103,8 +111,8 @@ mark_region_reserved({X, Y, Width, Height}, GridContent) ->
     NewGrid = lists:sublist(GridContent, Y - 1) ++ [NewRow] ++ lists:nthtail(Y, GridContent),
 
     if
-        Y < Height ->
-            mark_region_reserved({X, Y + 1, Width, Height}, NewGrid);
+        Height > 1 ->
+            mark_region_reserved({X, Y + 1, Width, Height-1}, NewGrid);
         true ->
             NewGrid
     end.
@@ -119,8 +127,8 @@ mark_region_empty({X, Y, Width, Height}, GridContent) ->
     NewGrid = lists:sublist(GridContent, Y - 1) ++ [NewRow] ++ lists:nthtail(Y, GridContent),
 
     if
-        Y < Height ->
-            mark_region_reserved({X, Y + 1, Width, Height}, NewGrid);
+        Height > 1 ->
+            mark_region_reserved({X, Y + 1, Width, Height-1}, NewGrid);
         true ->
             NewGrid
     end.

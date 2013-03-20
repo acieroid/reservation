@@ -203,6 +203,7 @@ reserve_cells(ManagerData, Pid, NumberOfCells) ->
     end.
 
 request_specific_cells(ManagerData, Pid, ReservationId, Coordinates) ->
+    %% TODO: check that the number of cells corresponds
     {GridSize, FreeCells, W, H, Actors, {UnspecificRequests, NextId}} = ManagerData,
     {X, Y, ReserveWidth, ReserveHeight} = Coordinates,
     Request = lists:keyfind(ReservationId, 1, UnspecificRequests),
@@ -350,18 +351,24 @@ correctly_release_cells_when_failing_test() ->
 
     % reserve cells on another subgrid
     {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
-    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {46, 46, 4, 4})).
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {46, 46, 4, 4})
+               ).
 
 reserve_cells_simple_test() ->
-    Pid = initialize(100, 4),
+    Pid = initialize(20, 4),
 
-    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
-    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {1, 1, 4, 4})),
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 4),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {1, 1, 2, 2})),
 
-    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
-    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {10, 10, 4, 4})).
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 4),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {5, 5, 2, 2})),
 
-    
+    reservation:write_grid_to_file(Pid, "/tmp/foo.txt"),
+
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 4),
+    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {1, 1, 2, 2})).
+
+
 grid_overview_test() ->
     Pid = initialize(20, 1),
 
@@ -374,8 +381,6 @@ grid_overview_test() ->
                     ?assertMatch(EmptyRow, Row)
                   end, Grid),
 
-
-    reservation:write_grid_to_file(Pid, "/tmp/foo.txt"),
 
     {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 1),
     Cells = {1, 1, 1, 1},

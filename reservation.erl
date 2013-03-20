@@ -14,6 +14,7 @@
 -export([    get_size_of_resource/1, 
          has_remaining_free_cells/1,
                 get_grid_overview/1,
+               write_grid_to_file/2,
                     reserve_cells/2,
            request_specific_cells/3]).
 
@@ -105,18 +106,20 @@ request_specific_cells(FollowUpPid, ReservationId, {X, Y, Width, Height}) ->
 
 write_grid_to_file(FollowUpPid, Path) ->
     {Grid, _} = get_grid_overview(FollowUpPid),
-    {ok, F} = file:open(Path, [read,write]),
+    {ok, F} = file:open(Path, [write]),
     lists:map(fun (Row) ->
                       lists:map(fun(Cell) ->
                                         case Cell of
                                             empty ->
-                                                file:write(integer_to_list(0));
+                                                file:write(F, "0");
                                             reserved ->
-                                                file:write(integer_to_list(1))
+                                                file:write(F, "1")
                                         end,
-                                        file:write(",")
+                                        %% TODO: don't add this for the last element
+                                        file:write(F, ",")
                                 end,
-                               Row)
+                                Row),
+                      file:write(F, "\n")
               end,
               Grid),
     ok = file:close(F).
