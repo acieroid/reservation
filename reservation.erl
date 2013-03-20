@@ -102,4 +102,21 @@ request_specific_cells(FollowUpPid, ReservationId, {X, Y, Width, Height}) ->
         {FollowUpPid, request_specific_cells, ReservationId, SuccessOrFailure} ->
             SuccessOrFailure
     end.
-    
+
+write_grid_to_file(FollowUpPid, Path) ->
+    {Grid, _} = get_grid_overview(FollowUpPid),
+    {ok, F} = file:open(Path, [read,write]),
+    lists:map(fun (Row) ->
+                      lists:map(fun(Cell) ->
+                                        case Cell of
+                                            empty ->
+                                                file:write(integer_to_list(0));
+                                            reserved ->
+                                                file:write(integer_to_list(1))
+                                        end,
+                                        file:write(",")
+                                end,
+                               Row)
+              end,
+              Grid),
+    ok = file:close(F).
