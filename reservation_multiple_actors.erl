@@ -153,8 +153,23 @@ create_empty_grid_content(GridSize) ->
     Content = [ EmptyRow || _ <- lists:seq(1, H) ],
     Content.
 
-copy_region(Content, _SubContent, _X, _Y, _W, _H) ->
-    Content. % TODO
+copy_region(Content, SubContent, X, Y, W, H) ->
+    Row = lists:nth(Y, Content),
+    RegionCells = lists:nth(1, SubContent),
+    NewSubContent = lists:nthtail(1, SubContent),
+
+    {Begin, Rest} = lists:split(X - 1, Row),
+    NewRow = Begin ++ RegionCells ++ lists:nthtail(W, Rest),
+
+    NewContent = lists:sublist(Content, Y - 1) ++
+        [NewRow] ++ lists:nthtail(Y, Content),
+
+    if
+        Y < H ->
+            copy_region(NewContent, NewSubContent, X, Y+1, W, H);
+        true ->
+            NewContent
+    end.
 
 get_grid_overview_gather_responses([], _, Content) ->
     Content;
@@ -336,3 +351,35 @@ correctly_release_cells_when_failing_test() ->
     % reserve cells on another subgrid
     {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
     ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {46, 46, 4, 4})).
+
+
+grid_overview_test() ->
+    Pid = initialize(20, 4),
+
+    {Grid, _} = reservation:get_grid_overview(Pid),
+
+    % Everything should be still empty
+    ?assertMatch(20, length(Grid)),
+    EmptyRow = [ empty || _ <- lists:seq(1, 20) ],
+    lists:foreach(fun(Row) ->
+                    ?assertMatch(EmptyRow, Row)
+                  end, Grid),
+
+
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 1),
+    Cells = {1, 1, 1, 1},
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, Cells)),
+
+    {GridWithOne, _} = reservation:get_grid_overview(Pid),
+
+    [FirstRow | RemainingRows] = GridWithOne,
+    [First | RemainingRow] = FirstRow,
+    ?assertMatch(reserved, First),
+
+    lists:foreach(fun(Cell) ->
+                    ?assertMatch(empty, Cell)
+                  end, RemainingRow),
+
+    lists:foreach(fun(Row2) ->
+                    ?assertMatch(EmptyRow, Row2)
+                  end, RemainingRows).
