@@ -76,13 +76,13 @@ decompose(N, M) ->
     end.
 
 %% Send a message to a random actor of the given list of actors
-send_to_random([], Msg) ->
-    erlang:display({error, no_more_actors, Msg});
-send_to_random(Actors, Msg) ->
-    % TODO: actually randomize this
-    [Actor|_] = Actors,
-    Actor ! Msg,
-    Actor.
+%% send_to_random([], Msg) ->
+%%     erlang:display({error, no_more_actors, Msg});
+%% send_to_random(Actors, Msg) ->
+%%     % TODO: actually randomize this
+%%     [Actor|_] = Actors,
+%%     Actor ! Msg,
+%%     Actor.
 
 %% Send a message to all the actors
 send_to_all([], _) ->
@@ -154,7 +154,6 @@ create_empty_grid_content(GridSize) ->
     Content.
 
 copy_region(Content, SubContent, X, Y, W, H) ->
-    %erlang:display({copy_region, X, Y, W, H}),
     Row = lists:nth(Y, Content),
     RegionCells = lists:nth(1, SubContent),
     NewSubContent = lists:nthtail(1, SubContent),
@@ -400,7 +399,7 @@ grid_overview_test() ->
                     ?assertMatch(EmptyRow, Row2)
                   end, RemainingRows).
 
-butlast([X|[]]) ->
+butlast([_|[]]) ->
     [];
 butlast([H|T]) ->
     [H|butlast(T)].

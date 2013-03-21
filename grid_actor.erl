@@ -110,8 +110,6 @@ mark_region_reserved({X, Y, Width, Height}, GridContent) ->
 
     NewGrid = lists:sublist(GridContent, Y - 1) ++ [NewRow] ++ lists:nthtail(Y, GridContent),
 
-    erlang:display({self(), reserve, X, Y, Width, Height}),
-
     if
         Height > 1 ->
             mark_region_reserved({X, Y + 1, Width, Height-1}, NewGrid);
