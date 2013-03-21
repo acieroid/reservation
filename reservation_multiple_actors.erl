@@ -154,6 +154,7 @@ create_empty_grid_content(GridSize) ->
     Content.
 
 copy_region(Content, SubContent, X, Y, W, H) ->
+    %erlang:display({copy_region, X, Y, W, H}),
     Row = lists:nth(Y, Content),
     RegionCells = lists:nth(1, SubContent),
     NewSubContent = lists:nthtail(1, SubContent),
@@ -165,8 +166,8 @@ copy_region(Content, SubContent, X, Y, W, H) ->
         [NewRow] ++ lists:nthtail(Y, Content),
 
     if
-        Y < H ->
-            copy_region(NewContent, NewSubContent, X, Y+1, W, H);
+        H > 1 ->
+            copy_region(NewContent, NewSubContent, X, Y+1, W, H-1);
         true ->
             NewContent
     end.
@@ -261,6 +262,7 @@ release_specific_cells_gather_responses(Actors, Ref) ->
 %%
 %% Test functions
 %%
+
 initialization_returns_pid_test() ->
     Pid = initialize(100, 4),
     ?assert(is_pid(Pid)).
@@ -368,7 +370,6 @@ reserve_cells_simple_test() ->
     {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 4),
     ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {1, 1, 2, 2})).
 
-
 grid_overview_test() ->
     Pid = initialize(20, 1),
 
@@ -381,14 +382,11 @@ grid_overview_test() ->
                     ?assertMatch(EmptyRow, Row)
                   end, Grid),
 
-
     {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 1),
     Cells = {1, 1, 1, 1},
     ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, Cells)),
 
     {GridWithOne, _} = reservation:get_grid_overview(Pid),
-
-    reservation:write_grid_to_file(Pid, "/tmp/bar.txt"),
 
     [FirstRow | RemainingRows] = GridWithOne,
     [First | RemainingRow] = FirstRow,
@@ -401,3 +399,54 @@ grid_overview_test() ->
     lists:foreach(fun(Row2) ->
                     ?assertMatch(EmptyRow, Row2)
                   end, RemainingRows).
+
+butlast([X|[]]) ->
+    [];
+butlast([H|T]) ->
+    [H|butlast(T)].
+
+bottom_right_grid_overview_test() ->
+    Pid = initialize(20, 4),
+
+    {Grid, _} = reservation:get_grid_overview(Pid),
+
+    % Everything should be still empty
+    ?assertMatch(20, length(Grid)),
+    EmptyRow = [ empty || _ <- lists:seq(1, 20) ],
+    lists:foreach(fun(Row) ->
+                    ?assertMatch(EmptyRow, Row)
+                  end, Grid),
+
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 1),
+    Cells = {20, 20, 1, 1},
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, Cells)),
+
+    {GridWithOne, _} = reservation:get_grid_overview(Pid),
+
+    LastRow = lists:last(GridWithOne),
+    OtherRows = butlast(GridWithOne),
+    Last = lists:last(LastRow),
+    OtherRow = butlast(LastRow),
+    ?assertMatch(reserved, Last),
+
+    lists:foreach(fun(Cell) ->
+                    ?assertMatch(empty, Cell)
+                  end, OtherRow),
+
+    lists:foreach(fun(Row2) ->
+                    ?assertMatch(EmptyRow, Row2)
+                  end, OtherRows).
+
+reserve_corners_test() ->
+    Pid = initialize(40, 4),
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {1, 1, 4, 4})),
+
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {37, 1, 4, 4})),
+
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {1, 37, 4, 4})),
+
+    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {37, 37, 4, 4})).
