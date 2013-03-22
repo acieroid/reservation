@@ -52,8 +52,6 @@ actor(Grid) ->
             erlang:display({unexpectedMessage, actor, Else}),
             NewGrid = Grid
     end,
-    {_, _, _, FreeCells, _} = Grid,
-    erlang:display(FreeCells),
     actor(NewGrid).
 
 %%
