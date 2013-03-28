@@ -8,79 +8,40 @@
 %%
 %% Exported functions
 %%
--export([start/0, fill_with_clients/3, single_actor/2]).
+-export([start/0, fill_with_clients/3, single_actor/3]).
 
 %%
 %% API function
 %%
 start() ->
-    benchmarks({300, 50, 350}, %% grid size, not really important
-               {4, 2, 6}, %% number of clients, not important neither
-               {1, 1, 8}). %% number of actors, important
+    GridSize = argument(gridsize, 300, integer),
+    Actors = argument(actors, 1, integer),
+    Clients = argument(clients, 4, integer),
+    Benchmark = argument(benchmark, single_actor, atom),
+    benchmark(Benchmark, [GridSize, Actors, Clients]).
 
 fill_with_clients(GridSize, Actors, Clients) ->
     Pid = reservation_multiple_actors:initialize(GridSize, Actors),
     spawn_clients(Pid, Clients, GridSize*GridSize),
     wait_clients(Pid, Clients).
 
-single_actor(GridSize, Clients) ->
+single_actor(GridSize, _, Clients) ->
     Pid = reservation_single_actor:initialize(GridSize),
     spawn_clients(Pid, Clients, GridSize*GridSize),
     wait_clients(Pid, Clients).
+
 %%
 %% Local functions
 %%
-benchmarks({_GridSizeStart, _GridSizeStep, GridSizeStop},
-           {_ClientsStart, _ClientsStep, ClientsStop},
-           {_ActorsStart, _ActorsStep, ActorsStop},
-           GridSizeStop, ClientsStop, ActorsStop) ->
-    done;
-benchmarks({GridSizeStart, GridSizeStep, GridSizeStop},
-           {ClientsStart, ClientsStep, ClientsStop},
-           {ActorsStart, ActorsStep, ActorsStop},
-           GridSizeStop, ClientsStop, Actors) ->
-    benchmarks({GridSizeStart, GridSizeStep, GridSizeStop},
-               {ClientsStart, ClientsStep, ClientsStop},
-               {ActorsStart, ActorsStep, ActorsStop},
-               GridSizeStart,
-               ClientsStart,
-               Actors + ActorsStep);
-benchmarks({GridSizeStart, GridSizeStep, GridSizeStop},
-           {ClientsStart, ClientsStep, ClientsStop},
-           {ActorsStart, ActorsStep, ActorsStop},
-           GridSizeStop, Clients, Actors) ->
-    benchmarks({GridSizeStart, GridSizeStep, GridSizeStop},
-               {ClientsStart, ClientsStep, ClientsStop},
-               {ActorsStart, ActorsStep, ActorsStop},
-               GridSizeStart,
-               Clients + ClientsStep,
-               Actors);
-benchmarks({GridSizeStart, GridSizeStep, GridSizeStop},
-           {ClientsStart, ClientsStep, ClientsStop},
-           {ActorsStart, ActorsStep, ActorsStop},
-           GridSize, Clients, Actors) ->
-    bench(GridSize, Clients, Actors),
-    benchmarks({GridSizeStart, GridSizeStep, GridSizeStop},
-               {ClientsStart, ClientsStep, ClientsStop},
-               {ActorsStart, ActorsStep, ActorsStop},
-               GridSize + GridSizeStep,
-               Clients,
-               Actors).
-
-benchmarks({GridSizeStart, GridSizeStep, GridSizeStop},
-           {ClientsStart, ClientsStep, ClientsStop},
-           {ActorsStart, ActorsStep, ActorsStop}) ->
-    benchmarks({GridSizeStart, GridSizeStep, GridSizeStop},
-               {ClientsStart, ClientsStep, ClientsStop},
-               {ActorsStart, ActorsStep, ActorsStop},
-               GridSizeStart, ClientsStart, ActorsStart).
-
-bench(GridSize, Clients, Actors) ->
-    erlang:display("Grid size: " ++ integer_to_list(GridSize)),
-    erlang:display("Number of actors: " ++ integer_to_list(Actors)),
-    erlang:display("Number of clients: " ++ integer_to_list(Clients)),
-    benchmark(single_actor, [GridSize, Clients]),
-    benchmark(fill_with_clients, [GridSize, Actors, Clients]).
+argument(Name, Default, Type) ->
+    case init:get_argument(Name) of
+        {ok, [[Val]]} ->
+            case Type of
+                integer -> list_to_integer(Val);
+                atom -> list_to_atom(Val)
+            end;
+        error -> Default
+    end.
 
 spawn_clients(Pid, N, CellsToAllocate) ->
     spawn_clients(Pid, N, CellsToAllocate, N).
@@ -101,6 +62,5 @@ wait_clients(Pid, Clients) ->
     end.
 
 benchmark(Name, Args) ->
-    erlang:display({starting, Name, Args}),
     {Time, _} = timer:tc(bench, Name, Args),
-    erlang:display({time, Name, Args, Time}).
+    erlang:display(Time).

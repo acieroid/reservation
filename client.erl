@@ -32,7 +32,7 @@ start(NumberOfCellsToBeAllocated,
       EntryPointPid,
       MasterPid,
       {MaxCellsPerRequest, Width, Height}) ->
-    erlang:display({starting_client, NumberOfCellsToBeAllocated, EntryPointPid, MasterPid, {MaxCellsPerRequest, Width, Height}}),
+    %%erlang:display({starting_client, NumberOfCellsToBeAllocated, EntryPointPid, MasterPid, {MaxCellsPerRequest, Width, Height}}),
   GridDetails = {MaxCellsPerRequest, Width, Height},
   spawn_link(?MODULE, actor, [NumberOfCellsToBeAllocated,
                               EntryPointPid, MasterPid, GridDetails]).
