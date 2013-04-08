@@ -31,9 +31,9 @@
 start(NumberOfCellsToBeAllocated,
       EntryPointPid,
       MasterPid,
-      {MaxCellsPerRequest, Width, Height}) ->
+      {MaxCellsPerRequest, PercentOfSpecificRequest, Width, Height}) ->
     %%erlang:display({starting_client, NumberOfCellsToBeAllocated, EntryPointPid, MasterPid, {MaxCellsPerRequest, Width, Height}}),
-  GridDetails = {MaxCellsPerRequest, Width, Height},
+  GridDetails = {MaxCellsPerRequest, PercentOfSpecificRequest, Width, Height},
   spawn_link(?MODULE, actor, [NumberOfCellsToBeAllocated,
                               EntryPointPid, MasterPid, GridDetails]).
 
@@ -85,27 +85,27 @@ do_allocation({AllocCells, {Row, Column}}, EntryPointPid) ->
 %% Create the allocation plan using some hardcoded seed for
 %% the random number generator
 create_allocation_plan(NumberOfCellsToBeAllocated, GridDetails) ->
-    random:seed(42, 42, 42),
+    random:seed(now()),
     create_reservation_list(NumberOfCellsToBeAllocated, GridDetails, []).
 
 create_reservation_list(0, _, AccList) ->
     AccList;
 create_reservation_list(NumberOfCellsToBeAllocated, GridDetails, AccList) ->
-    {MaxCellsPerRequest, Width, Height} = GridDetails,
+    {MaxCellsPerRequest, PercentOfSpecificRequest, Width, Height} = GridDetails,
     
     % determine the number of cells
     AllocCells = random:uniform(erlang:min(MaxCellsPerRequest, NumberOfCellsToBeAllocated)),
     
     % determine whether to request specific cells or not
-    case random:uniform(3) of
-        1     -> % no specialization
+    case random:uniform(100) of
+        N when N > PercentOfSpecificRequest-> % no specialization
             AllocRequest = {AllocCells};
-        _Else -> % do specialization in approx. 66% of the cases
+        _Else -> % specialization
             Row    = random:uniform(Height),
             Column = random:uniform(Width - MaxCellsPerRequest),
             AllocRequest = {AllocCells, {Row, Column}}
     end,
-    
+
     NewAccList = AccList ++ [AllocRequest],
     create_reservation_list(NumberOfCellsToBeAllocated - AllocCells,
                             GridDetails,

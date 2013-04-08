@@ -181,9 +181,11 @@ reserve_cells(ManagerData, Pid, NumberOfCells) ->
     {GridSize, FreeCells, W, H, Actors, UnspecificRequests} = ManagerData,
     if
         NumberOfCells > GridSize*GridSize * ?MAX_REQUEST ->
+            erlang:display({Pid,request_too_large, NumberOfCells, GridSize*GridSize*?MAX_REQUEST}),
             Pid ! {self(), reserve_cells, failed, request_too_large},
             ManagerData;
         NumberOfCells > FreeCells ->
+            erlang:display({Pid, not_enough_cells_available, NumberOfCells, FreeCells}),
             Pid ! {self(), reserve_cells, failed, not_enough_cells_available},
             ManagerData;
         true ->

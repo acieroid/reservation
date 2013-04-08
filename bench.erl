@@ -14,20 +14,21 @@
 %% API function
 %%
 start() ->
-    GridSize = argument(gridsize, 300, integer),
+    GridSize = argument(gridsize, 20, integer),
     Actors = argument(actors, 1, integer),
     Clients = argument(clients, 4, integer),
+    random:seed(now()),
     Benchmark = argument(benchmark, single_actor, atom),
     benchmark(Benchmark, [GridSize, Actors, Clients]).
 
 fill_with_clients(GridSize, Actors, Clients) ->
     Pid = reservation_multiple_actors:initialize(GridSize, Actors),
-    spawn_clients(Pid, Clients, GridSize*GridSize),
+    spawn_clients(Pid, Clients, GridSize*GridSize, GridSize),
     wait_clients(Pid, Clients).
 
 single_actor(GridSize, _, Clients) ->
     Pid = reservation_single_actor:initialize(GridSize),
-    spawn_clients(Pid, Clients, GridSize*GridSize),
+    spawn_clients(Pid, Clients, GridSize*GridSize, GridSize),
     wait_clients(Pid, Clients).
 
 %%
@@ -43,15 +44,20 @@ argument(Name, Default, Type) ->
         error -> Default
     end.
 
-spawn_clients(Pid, N, CellsToAllocate) ->
-    spawn_clients(Pid, N, CellsToAllocate, N).
+spawn_clients(Pid, N, CellsToAllocate, GridSize) ->
+    spawn_clients(Pid, N, CellsToAllocate, GridSize, N).
 
-spawn_clients(_, 0, _, _) ->
+spawn_clients(_, _, _, _, 0) ->
     done;
-spawn_clients(Pid, N, CellsToAllocate, Clients) ->
-    %% TODO: implement a better client
-    client:start(round(CellsToAllocate/Clients), Pid, self(), {5, 100, 100}),
-    spawn_clients(Pid, N-1, CellsToAllocate, Clients).
+spawn_clients(Pid, N, CellsToAllocate, GridSize, Clients) ->
+    client:start(round(CellsToAllocate/N), Pid, self(),
+                 % Max cells per request
+                 {random:uniform((GridSize * GridSize) div 50),
+                  % Percent of specific request
+                  random:uniform(100),
+                  % Grid width and height
+                  GridSize, GridSize}),
+    spawn_clients(Pid, N, CellsToAllocate, GridSize, Clients-1).
 
 wait_clients(Pid, 0) ->
     exit(Pid, succes);
