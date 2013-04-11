@@ -102,7 +102,7 @@ create_reservation_list(NumberOfCellsToBeAllocated, GridDetails, AccList) ->
             AllocRequest = {AllocCells};
         _Else -> % specialization
             Row    = random:uniform(Height),
-            Column = random:uniform(Width - MaxCellsPerRequest),
+            Column = random:uniform(Width),
             AllocRequest = {AllocCells, {Row, Column}}
     end,
 

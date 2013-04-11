@@ -8,27 +8,32 @@
 %%
 %% Exported functions
 %%
--export([start/0, fill_with_clients/3, single_actor/3]).
+-export([start/0, fill_with_clients/4, single_actor/4]).
 
 %%
 %% API function
 %%
 start() ->
-    GridSize = argument(gridsize, 20, integer),
+    %% Grid size (width and height, since it is square)
+    GridSize = argument(gridsize, 300, integer),
+    %% Number of actors to spawn
     Actors = argument(actors, 1, integer),
+    %% Number of clients to spawn
     Clients = argument(clients, 4, integer),
+    %% Percentage of the grid to fill with the clients (0-100)
+    GridCompletion = argument(grid_completion, 50, integer),
     random:seed(now()),
     Benchmark = argument(benchmark, single_actor, atom),
-    benchmark(Benchmark, [GridSize, Actors, Clients]).
+    benchmark(Benchmark, [GridSize, GridCompletion, Actors, Clients]).
 
-fill_with_clients(GridSize, Actors, Clients) ->
+fill_with_clients(GridSize, GridCompletion, Actors, Clients) ->
     Pid = reservation_multiple_actors:initialize(GridSize, Actors),
-    spawn_clients(Pid, Clients, GridSize*GridSize, GridSize),
+    spawn_clients(Pid, Clients, (GridCompletion*GridSize*GridSize)/100, GridSize),
     wait_clients(Pid, Clients).
 
-single_actor(GridSize, _, Clients) ->
+single_actor(GridSize, GridCompletion, _, Clients) ->
     Pid = reservation_single_actor:initialize(GridSize),
-    spawn_clients(Pid, Clients, GridSize*GridSize, GridSize),
+    spawn_clients(Pid, Clients, (GridCompletion*GridSize*GridSize)/100, GridSize),
     wait_clients(Pid, Clients).
 
 %%
@@ -51,17 +56,18 @@ spawn_clients(_, _, _, _, 0) ->
     done;
 spawn_clients(Pid, N, CellsToAllocate, GridSize, Clients) ->
     client:start(round(CellsToAllocate/N), Pid, self(),
-                 % Max cells per request
+                 %% Max cells per request
                  {random:uniform((GridSize * GridSize) div 50),
-                  % Percent of specific request
+                  %% Percent of specific request
                   random:uniform(100),
-                  % Grid width and height
+                  %% Grid width and height
                   GridSize, GridSize}),
     spawn_clients(Pid, N, CellsToAllocate, GridSize, Clients-1).
 
 wait_clients(Pid, 0) ->
-    exit(Pid, succes);
+    exit(Pid, success);
 wait_clients(Pid, Clients) ->
+    %% TODO: catch errors ?
     receive
         {_, done} ->
             wait_clients(Pid, Clients-1)

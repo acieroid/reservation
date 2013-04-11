@@ -193,9 +193,9 @@ reserve_cells(ManagerData, Pid, NumberOfCells) ->
             Pid ! {self(), reserve_cells, success, {self(), NextId}},
             {GridSize, FreeCells - NumberOfCells,
              W, H, Actors,
-             % TODO: don't concatenate: either prepend (but it might
-             % starve clients), or use erlang's priority system (with
-             % messages)
+             %% TODO: don't concatenate: either prepend (but it might
+             %% starve clients), or use erlang's priority system (with
+             %% messages)
              {UnspecReqList ++ [{NextId, NumberOfCells}], NextId}}
     end.
 
@@ -208,11 +208,11 @@ request_specific_cells(ManagerData, Pid, ReservationId, Coordinates) ->
         not Request;
         X < 1; Y < 1;
         (Y + ReserveHeight - 1) > GridSize; (X + ReserveWidth - 1) > GridSize ->
-            % invalid request or request not found
+            %% invalid request or request not found
             Pid ! {self(), request_specific_cells, ReservationId, failed},
             ManagerData;
         true ->
-            % request found, pass it to all the actors
+            %% request found, pass it to all the actors
             Ref = make_ref(),
             send_to_all(Actors,
                         {self(), Ref, request_specific_cells,
