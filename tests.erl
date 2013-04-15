@@ -107,13 +107,12 @@ correctly_release_cells_when_failing_test() ->
     ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {51, 51, 4, 4})),
 
     % reserve cells between subgrids (should fail)
-    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 64),
-    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {48, 48, 8, 8})),
+    {success, {FollowUpPid, SecondReservationId}} = reservation:reserve_cells(Pid, 64),
+    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, SecondReservationId, {48, 48, 8, 8})),
 
     % reserve cells on another subgrid
-    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
-    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {46, 46, 4, 4})
-               ).
+    {success, {FollowUpPid, ThirdReservationId}} = reservation:reserve_cells(Pid, 16),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ThirdReservationId, {46, 46, 4, 4})).
 
 reserve_cells_simple_test() ->
     Pid = initialize(20, 4),
@@ -121,13 +120,11 @@ reserve_cells_simple_test() ->
     {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 4),
     ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {1, 1, 2, 2})),
 
-    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 4),
-    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {5, 5, 2, 2})),
+    {success, {FollowUpPid, SecondReservationId}} = reservation:reserve_cells(Pid, 4),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, SecondReservationId, {5, 5, 2, 2})),
 
-    reservation:write_grid_to_file(Pid, "/tmp/foo.txt"),
-
-    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 4),
-    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ReservationId, {1, 1, 2, 2})).
+    {success, {FollowUpPid, ThirdReservationId}} = reservation:reserve_cells(Pid, 4),
+    ?assertMatch(failed, reservation:request_specific_cells(FollowUpPid, ThirdReservationId, {1, 1, 2, 2})).
 
 grid_overview_test() ->
     Pid = initialize(20, 1),
@@ -201,11 +198,11 @@ reserve_corners_test() ->
     {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
     ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {1, 1, 4, 4})),
 
-    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
-    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {37, 1, 4, 4})),
+    {success, {FollowUpPid, SecondReservationId}} = reservation:reserve_cells(Pid, 16),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, SecondReservationId, {37, 1, 4, 4})),
 
-    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
-    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {1, 37, 4, 4})),
+    {success, {FollowUpPid, ThirdReservationId}} = reservation:reserve_cells(Pid, 16),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ThirdReservationId, {1, 37, 4, 4})),
 
-    {success, {FollowUpPid, ReservationId}} = reservation:reserve_cells(Pid, 16),
-    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, ReservationId, {37, 37, 4, 4})).
+    {success, {FollowUpPid, FourthReservationId}} = reservation:reserve_cells(Pid, 16),
+    ?assertMatch(success, reservation:request_specific_cells(FollowUpPid, FourthReservationId, {37, 37, 4, 4})).
