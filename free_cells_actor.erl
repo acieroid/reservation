@@ -87,14 +87,13 @@ get_reservation(ActorData, MainPid, Pid, ReservationId, Coordinates) ->
     {GridSize, FreeCells, UnspecificRequests, NextId} = ActorData,
     {X, Y, W, H} = Coordinates,
     NumberOfCells = W*H,
-    Request = lists:keyfind(ReservationId, 1, UnspecificRequests),
+    {_, Request} = lists:keyfind(ReservationId, 1, UnspecificRequests),
     if
         not Request;
         X < 1; Y < 1;
         (X + W - 1) > GridSize;
-        (Y + H - 1) > GridSize
-        %% not (Request == NumberOfCells)
-        ->
+        (Y + H - 1) > GridSize;
+        not (Request == NumberOfCells) ->
             %% Invalid request or request not found
             Pid ! {MainPid, request_specific_cells, ReservationId, failed},
             ActorData;
