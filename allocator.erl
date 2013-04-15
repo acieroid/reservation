@@ -9,12 +9,12 @@
 %%
 %% Exported functions
 %%
--export([start/3]).
+-export([start/4]).
 
 %%
 %% API functions
 %%
-start(GridSize, NActors, FreeCellsActor) ->
+start(MainPid, GridSize, NActors, FreeCellsActor) ->
     %% How to decompose the grid vertically/horizontally (in subgrid
     %% of equal sizes)
     {M, N} = decompose(NActors),
@@ -25,30 +25,30 @@ start(GridSize, NActors, FreeCellsActor) ->
     %% Create grid specifications
     GridsSpecs = create_grids_specs(GridSize, W, H),
     %% Spawn grid actors
-    Actors = list:map(fun(GridSpec) ->
+    Actors = lists:map(fun(GridSpec) ->
                               spawn_link(grid_actor, start, [GridSpec])
                       end,
                       GridsSpecs),
     %% Launch the allocator manager (this actor)
     ActorData = {GridSize, W, H, Actors, FreeCellsActor},
-    actor(ActorData).
+    actor(ActorData, MainPid).
 
 %%
 %% Local functions
 %%
 
 %% Main function of this actor
-actor(ActorData) ->
+actor(ActorData, MainPid) ->
     NewActorData =
         receive
             {Pid, get_grid_overview} ->
-                get_grid_overview(ActorData, Pid);
+                get_grid_overview(ActorData, MainPid, Pid);
             {Pid, request_specific_cells, Ref, ReservationId, Coordinates} ->
-                request_specific_cells(ActorData, Pid, Ref, ReservationId, Coordinates);
+                request_specific_cells(ActorData, MainPid, Pid, Ref, ReservationId, Coordinates);
             Else ->
                 erlang:display({unexpected_message, allocator, Else})
         end,
-    actor(NewActorData).
+    actor(NewActorData, MainPid).
 
 %% Decompose the integer N into its two biggest factors
 decompose(N) ->
@@ -128,7 +128,7 @@ copy_region(Content, SubContent, X, Y, W, H) ->
 
 
 %% Send the overview of the grid
-get_grid_overview(ActorData, Pid) ->
+get_grid_overview(ActorData, MainPid, Pid) ->
     {GridSize, _, _, Actors, _} = ActorData,
     %% Request the overview of each actor
     Ref = make_ref(),
@@ -137,7 +137,7 @@ get_grid_overview(ActorData, Pid) ->
     Content = get_grid_overview_gather_responses(Actors, Ref,
                                                  create_empty_grid_content(GridSize)),
     %% Send the result
-    Pid ! {self(), get_grid_overview, Content, {GridSize, GridSize}},
+    Pid ! {MainPid, get_grid_overview, Content, {GridSize, GridSize}},
     ActorData.
 
 %% Gather the responses containing the grid overviews sent by the
@@ -156,7 +156,7 @@ get_grid_overview_gather_responses(Actors, Ref, Content) ->
 %% Handle the requests of specific cells. Note: at this point, we know
 %% that the request is valid, since it has been first validated by the
 %% free cells actor before being sent to this actor.
-request_specific_cells(ActorData, Pid, Ref, ReservationId, Coordinates) ->
+request_specific_cells(ActorData, MainPid, Pid, Ref, ReservationId, Coordinates) ->
     {GridSize, W, H, Actors, FreeCellsActor} = ActorData,
     %% Send the request to all the grid actors
     send_to_all(Actors,
@@ -176,7 +176,7 @@ request_specific_cells(ActorData, Pid, Ref, ReservationId, Coordinates) ->
         %% Success
         _ -> nothing
     end,
-    Pid ! {self(),  request_specific_cells, ReservationId, Status},
+    Pid ! {MainPid, request_specific_cells, ReservationId, Status},
     {GridSize, W, H, Actors, FreeCellsActor}.
 
 %% Gather the responses after a specific request

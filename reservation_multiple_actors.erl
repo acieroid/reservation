@@ -8,21 +8,39 @@
 %%
 %% Exported functions
 %%
--export([initialize/2, actor/2]).
+-export([initialize/2, prepare_actor/0]).
 
 
 %%
 %% API functions
 %%
 initialize(GridSize, NActors) ->
+    %% Spawn the request manager (this actor)
+    MainPid = spawn_link(?MODULE, prepare_actor, []),
+
     %% Launch the free cells actor
     FreeCellsActor = spawn_link(free_cells_actor, start,
-                                [self(), GridSize]),
+                                [MainPid, GridSize]),
     %% Launch the allocator actor
     AllocatorActor = spawn_link(allocator, start,
-                                [GridSize, NActors, FreeCellsActor]),
-    %% Spawn the request manager (this actor)
-    spawn_link(?MODULE, actor, [FreeCellsActor, AllocatorActor]).
+                                [MainPid, GridSize,
+                                 NActors, FreeCellsActor]),
+
+    %% Send the PIDs to the request manager
+    MainPid ! {ready, FreeCellsActor, AllocatorActor},
+    %% Return the main PID
+    MainPid.
+
+%% Waits for the PIDs of the managed actors to start
+prepare_actor() ->
+    receive
+        {ready, FreeCellsActor, AllocatorActor} ->
+            actor(FreeCellsActor, AllocatorActor)
+    end.
+
+%%
+%% Local function
+%%
 
 %% The main function of this actor
 actor(FreeCellsActor, AllocatorActor) ->

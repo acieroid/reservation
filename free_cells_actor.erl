@@ -34,9 +34,9 @@ actor(ActorData, MainPid) ->
     NewActorData =
         receive
             {Pid, get_size_of_resource} ->
-                get_size_of_resource(ActorData, Pid);
+                get_size_of_resource(ActorData, MainPid, Pid);
             {Pid, has_remaining_free_cells} ->
-                has_remaining_free_cells(ActorData, Pid);
+                has_remaining_free_cells(ActorData, MainPid, Pid);
             {Pid, reserve_cells, NumberOfCells} ->
                 reserve_cells(ActorData, MainPid, Pid, NumberOfCells);
             {Pid, get_reservation, ReservationId, Coordinates} ->
@@ -45,15 +45,16 @@ actor(ActorData, MainPid) ->
     actor(NewActorData, MainPid).
 
 %% Send the grid size
-get_size_of_resource(ActorData, Pid) ->
+get_size_of_resource(ActorData, MainPid, Pid) ->
     {GridSize, _, _, _} = ActorData,
-    Pid ! {self(), get_size_of_resource, {GridSize, GridSize}},
+    erlang:display({get_size_of_resource, GridSize}),
+    Pid ! {MainPid, get_size_of_resource, {GridSize, GridSize}},
     ActorData.
 
 %% Check if we still have free cells
-has_remaining_free_cells(ActorData, Pid) ->
+has_remaining_free_cells(ActorData, MainPid, Pid) ->
     {_, FreeCells, _, _} = ActorData,
-    Pid ! {self(), has_remaining_free_cells, FreeCells > 0},
+    Pid ! {MainPid, has_remaining_free_cells, FreeCells > 0},
     ActorData.
 
 %% Reserve unspecific cells
@@ -62,15 +63,15 @@ reserve_cells(ActorData, MainPid, Pid, NumberOfCells) ->
     if
         NumberOfCells > GridSize*GridSize * ?MAX_REQUEST ->
             %% Too many cells requested
-            Pid ! {self(), reserve_cells, failed, request_too_large},
+            Pid ! {MainPid, reserve_cells, failed, request_too_large},
             ActorData;
         NumberOfCells > FreeCells ->
             %% Not enough cells remaining
-            Pid ! {self(), reserve_cells, failed, not_enough_cells_available},
+            Pid ! {MainPid, reserve_cells, failed, not_enough_cells_available},
             ActorData;
         true ->
             %% Correct request
-            Pid ! {self(), reserve_cells, success, {MainPid, NextId}},
+            Pid ! {MainPid, reserve_cells, success, {MainPid, NextId}},
             {GridSize, FreeCells - NumberOfCells,
              %% TODO: don't concatenate: either prepend (but it might
              %% starve clients), or use erlang's priority system (with
@@ -94,7 +95,7 @@ get_reservation(ActorData, MainPid, Pid, ReservationId, Coordinates) ->
         (Y + H - 1) > GridSize;
         not (Request == NumberOfCells) ->
             %% Invalid request or request not found
-            Pid ! {self(), request_specific_cells, ReservationId, failed},
+            Pid ! {MainPid, request_specific_cells, ReservationId, failed},
             ActorData;
         true ->
             %% Request valid and found, return it to the main actor
