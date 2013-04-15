@@ -59,7 +59,7 @@ actor(FreeCellsActor, AllocatorActor) ->
             AllocatorActor ! {Pid, get_grid_overview};
         {FreeCellsActor, request_specific_cells, Pid, Ref, ReservationId, Coordinates} ->
             %% Message received when a specific request has been validated
-            AllocatorActor ! {Pid, reserve_specific_cells, Ref, ReservationId, Coordinates};
+            AllocatorActor ! {Pid, request_specific_cells, Ref, ReservationId, Coordinates};
 
         Else ->
             erlang:display({unexpected_message, manager, Else})
