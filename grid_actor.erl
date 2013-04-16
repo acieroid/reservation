@@ -23,19 +23,15 @@ start({X, Y, W, H}) ->
 %%
 create_empty_grid(X, Y, W, H) ->
     %% Create the empty grid specification
-    FreeCells = W * H,
     EmptyRow = [ empty || _ <- lists:seq(1, W) ],
     Grid = [ EmptyRow || _ <- lists:seq(1, H) ],
-    UnspecificRequests = {[], 0},
 
-    {{X, Y, W, H}, Grid, FreeCells, UnspecificRequests}.
+    {{X, Y, W, H}, Grid}.
 
 actor(Grid) ->
     %% Main function for this actor
     NewGrid =
         receive
-            {Pid, Ref, has_remaining_free_cells} ->
-                has_remaining_free_cells(Grid, Pid, Ref);
             {Pid, Ref, get_grid_overview} ->
                 get_grid_overview(Grid, Pid, Ref);
             {Pid, Ref, reserve_cells, NumberOfCells} ->
@@ -49,17 +45,9 @@ actor(Grid) ->
         end,
     actor(NewGrid).
 
-has_remaining_free_cells(Grid, Pid, Ref) ->
-    %% Check if there are free cells remaining. Note: in practice,
-    %% this would never be used (this is handled by the free_cells
-    %% actor)
-    {_, _, FreeCells, _} = Grid,
-    Pid ! {self(), Ref, has_remaining_free_cells, FreeCells > 0},
-    Grid.
-
 get_grid_overview(Grid, Pid, Ref) ->
     %% Return the current subgrid to the caller
-    {Specs, Content, _, _} = Grid,
+    {Specs, Content} = Grid,
     Pid ! {self(), Ref, get_grid_overview, Content, Specs},
     Grid.
 
@@ -70,7 +58,7 @@ reserve_cells(Grid, _Pid, _Ref, _NumberOfCells) ->
 intersection(Grid, Coordinates) ->
     %% Compute and return the intersection coordinates in the local
     %% coordinate system
-    {{X, Y, W, H}, _, _, _} = Grid,
+    {{X, Y, W, H}, _} = Grid,
     {CX, CY, CW, CH} = Coordinates,
     if
         CX >= X + W; CY >= Y + H;
@@ -142,7 +130,7 @@ mark_region_empty({X, Y, Width, Height}, GridContent) ->
 
 request_specific_cells(Grid, Pid, Ref, _ReservationId, Coordinates) ->
     %% Handle the specific requests
-    {Specs, Content, FreeCells, UnspecificRequests} = Grid,
+    {Specs, Content} = Grid,
     {NewGrid, Status} =
         case intersection(Grid, Coordinates) of
             none ->
@@ -157,7 +145,7 @@ request_specific_cells(Grid, Pid, Ref, _ReservationId, Coordinates) ->
                         %% Allocate
                         NewContent = mark_region_reserved(IntersectionCoordinates,
                                                           Content),
-                        {{Specs, NewContent, FreeCells, UnspecificRequests},
+                        {{Specs, NewContent},
                          success}
                 end
         end,
@@ -167,7 +155,7 @@ request_specific_cells(Grid, Pid, Ref, _ReservationId, Coordinates) ->
 release_specific_cells(Grid, Pid, Ref, _ReservationId, Coordinates) ->
     %% Release a region previously allocated (in case another grid
     %% actor has failed to allocate the region)
-    {Specs, Content, FreeCells, UnspecificRequests} = Grid,
+    {Specs, Content} = Grid,
     {NewGrid, Status} =
         case intersection(Grid, Coordinates) of
             none ->
@@ -176,7 +164,7 @@ release_specific_cells(Grid, Pid, Ref, _ReservationId, Coordinates) ->
             IntersectionCoordinates ->
                 NewContent = mark_region_empty(IntersectionCoordinates,
                                                Content),
-                {{Specs, NewContent, FreeCells, UnspecificRequests},
+                {{Specs, NewContent},
                  success}
         end,
     Pid ! {self(), Ref, request_specific_cells, Status},

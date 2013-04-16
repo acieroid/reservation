@@ -47,7 +47,6 @@ actor(ActorData, MainPid) ->
 %% Send the grid size
 get_size_of_resource(ActorData, MainPid, Pid) ->
     {GridSize, _, _, _} = ActorData,
-    erlang:display({get_size_of_resource, GridSize}),
     Pid ! {MainPid, get_size_of_resource, {GridSize, GridSize}},
     ActorData.
 
