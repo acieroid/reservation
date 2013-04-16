@@ -64,7 +64,7 @@ spawn_clients(Pid, N, CellsToAllocate, PercentSpecificRequests, GridSize, Client
                   PercentSpecificRequests,
                   %% Grid width and height
                   GridSize, GridSize}),
-    spawn_clients(Pid, N, CellsToAllocate, GridSize, Clients-1).
+    spawn_clients(Pid, N, CellsToAllocate, PercentSpecificRequests, GridSize, Clients-1).
 
 wait_clients(Pid, 0) ->
     exit(Pid, success);
@@ -77,4 +77,7 @@ wait_clients(Pid, Clients) ->
 
 benchmark(Name, Args) ->
     {Time, _} = timer:tc(bench, Name, Args),
-    erlang:display(Time).
+    {CPUTime, _} = statistics(runtime),
+    io:write(Time),
+    io:put_chars(" "),
+    io:write(CPUTime).
