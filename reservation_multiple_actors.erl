@@ -23,10 +23,10 @@ initialize(GridSize, NActors) ->
                                 [MainPid, GridSize]),
     %% Launch the allocator actor
     AllocatorActor = spawn_link(allocator, start,
-                                [MainPid, GridSize,
-                                 NActors, FreeCellsActor]),
+                                [MainPid, GridSize, NActors, FreeCellsActor]),
 
-    %% Send the PIDs to the request manager
+    %% Send the PIDs to the actors
+    FreeCellsActor ! {ready, AllocatorActor},
     MainPid ! {ready, FreeCellsActor, AllocatorActor},
     %% Return the main PID
     MainPid.
@@ -53,7 +53,7 @@ actor(FreeCellsActor, AllocatorActor) ->
             FreeCellsActor ! {Pid, reserve_cells, NumberOfCells};
         {Pid, request_specific_cells, ReservationId, Coordinates} ->
             %% This request is first validated by the free cells actor
-            FreeCellsActor ! {Pid, get_reservation, ReservationId, Coordinates};
+            FreeCellsActor ! {Pid, request_specific_cells, ReservationId, Coordinates};
 
         {Pid, get_grid_overview} ->
             AllocatorActor ! {Pid, get_grid_overview};

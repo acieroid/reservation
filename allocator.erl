@@ -176,7 +176,7 @@ request_specific_cells(ActorData, MainPid, Pid, Ref, ReservationId, Coordinates)
         %% Success
         _ -> nothing
     end,
-    Pid ! {MainPid, request_specific_cells, ReservationId, Status},
+    Pid ! {FreeCellsActor, request_specific_cells, ReservationId, Status},
     {GridSize, W, H, Actors, FreeCellsActor}.
 
 %% Gather the responses after a specific request
