@@ -92,7 +92,7 @@ reserve_cells(ActorData, MainPid, Pid, NumberOfCells) ->
 %% Send back the reservation corresponding to the id given, or
 %% notifies the client that the id is incorrect. If the ID is
 %% incorrect, no response is sent to the main pid.
-request_specific_cells(ActorData, MainPid, Pid, ReservationId, Coordinates) ->
+request_specific_cells(ActorData, _MainPid, Pid, ReservationId, Coordinates) ->
     {GridSize, FreeCells, UnspecificRequests, NextId, AllocatorActor} = ActorData,
     {X, Y, W, H} = Coordinates,
     NumberOfCells = W*H,
