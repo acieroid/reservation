@@ -31,9 +31,14 @@
 start(NumberOfCellsToBeAllocated,
       EntryPointPid,
       MasterPid,
-      {MaxCellsPerRequest, PercentOfSpecificRequest, Width, Height}) ->
-    %%erlang:display({starting_client, NumberOfCellsToBeAllocated, EntryPointPid, MasterPid, {MaxCellsPerRequest, Width, Height}}),
-  GridDetails = {MaxCellsPerRequest, PercentOfSpecificRequest, Width, Height},
+      {MaxCellsPerRequest,
+       PercentSpecificRequests,
+       PercentFailingRequests,
+       Width, Height}) ->
+  GridDetails = {MaxCellsPerRequest,
+                 PercentSpecificRequests,
+                 PercentFailingRequests,
+                 Width, Height},
   spawn_link(?MODULE, actor, [NumberOfCellsToBeAllocated,
                               EntryPointPid, MasterPid, GridDetails]).
 
@@ -91,14 +96,17 @@ create_allocation_plan(NumberOfCellsToBeAllocated, GridDetails) ->
 create_reservation_list(0, _, AccList) ->
     AccList;
 create_reservation_list(NumberOfCellsToBeAllocated, GridDetails, AccList) ->
-    {MaxCellsPerRequest, PercentOfSpecificRequest, Width, Height} = GridDetails,
+    {MaxCellsPerRequest,
+     PercentSpecificRequests,
+     PercentFailingRequests,
+     Width, Height} = GridDetails,
     
     % determine the number of cells
     AllocCells = random:uniform(erlang:min(MaxCellsPerRequest, NumberOfCellsToBeAllocated)),
     
     % determine whether to request specific cells or not
     case random:uniform(100) of
-        N when N > PercentOfSpecificRequest-> % no specialization
+        N when N > PercentSpecificRequests -> % no specialization
             AllocRequest = {AllocCells};
         _Else -> % specialization
             Row    = random:uniform(Height),

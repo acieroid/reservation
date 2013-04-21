@@ -8,7 +8,7 @@
 %%
 %% Exported functions
 %%
--export([start/0, fill_with_clients/5]).
+-export([start/0, fill_with_clients/6]).
 
 %%
 %% API function
@@ -24,18 +24,21 @@ start() ->
     GridCompletion = argument(grid_completion, 50, integer),
     %% Percent of specific requests (0-100)
     PercentSpecificRequests = argument(percent_specific, 50, integer),
+    %% Percent of failing requests (0-100)
+    PercentFailingRequests = argument(percent_failing, 0, integer),
     random:seed(now()),
     Benchmark = argument(benchmark, single_actor, atom),
-    benchmark(Benchmark, [GridSize, GridCompletion, PercentSpecificRequests,
+    benchmark(Benchmark, [GridSize, GridCompletion,
+                          PercentSpecificRequests, PercentFailingRequests,
                           Actors, Clients]).
 
-fill_with_clients(GridSize, GridCompletion, PercentSpecificRequests, Actors, Clients) ->
+fill_with_clients(GridSize, GridCompletion, PercentSpecificRequests, PercentFailingRequests, Actors, Clients) ->
     Pid =
         case Actors of
             0 -> reservation_single_actor:initialize(GridSize);
             _ -> reservation_multiple_actors:initialize(GridSize, Actors)
         end,
-    spawn_clients(Pid, Clients, (GridCompletion*GridSize*GridSize)/100, PercentSpecificRequests, GridSize),
+    spawn_clients(Pid, Clients, (GridCompletion*GridSize*GridSize)/100, PercentSpecificRequests, PercentFailingRequests, GridSize),
     wait_clients(Pid, Clients).
 
 %%
@@ -51,20 +54,22 @@ argument(Name, Default, Type) ->
         error -> Default
     end.
 
-spawn_clients(Pid, N, CellsToAllocate, PercentSpecificRequests, GridSize) ->
-    spawn_clients(Pid, N, CellsToAllocate, PercentSpecificRequests, GridSize, N).
+spawn_clients(Pid, N, CellsToAllocate, PercentSpecificRequests, PercentFailingRequests, GridSize) ->
+    spawn_clients(Pid, N, CellsToAllocate, PercentSpecificRequests, PercentFailingRequests, GridSize, N).
 
-spawn_clients(_, _, _, _, _, 0) ->
+spawn_clients(_, _, _, _, _, _, 0) ->
     done;
-spawn_clients(Pid, N, CellsToAllocate, PercentSpecificRequests, GridSize, Clients) ->
+spawn_clients(Pid, N, CellsToAllocate, PercentSpecificRequests, PercentFailingRequests, GridSize, Clients) ->
     client:start(round(CellsToAllocate/N), Pid, self(),
                  %% Max cells per request
                  {random:uniform((GridSize * GridSize) div 50),
                   %% Percent of specific request
                   PercentSpecificRequests,
+                  %% Percentage of bad requests
+                  PercentFailingRequests,
                   %% Grid width and height
                   GridSize, GridSize}),
-    spawn_clients(Pid, N, CellsToAllocate, PercentSpecificRequests, GridSize, Clients-1).
+    spawn_clients(Pid, N, CellsToAllocate, PercentSpecificRequests, PercentFailingRequests, GridSize, Clients-1).
 
 wait_clients(Pid, 0) ->
     exit(Pid, success);
