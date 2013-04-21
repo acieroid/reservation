@@ -15,50 +15,49 @@
 %% API functions
 %%
 start({X, Y, W, H}) ->
-    Grid = create_empty_grid(X, Y, W, H),
-    actor(Grid).
+    {Specs, Grid} = create_empty_grid(X, Y, W, H),
+    actor({Specs, Grid, []}).
 
 %%
 %% Local functions
 %%
+
+%% Create the empty grid specification
 create_empty_grid(X, Y, W, H) ->
-    %% Create the empty grid specification
     EmptyRow = [ empty || _ <- lists:seq(1, W) ],
     Grid = [ EmptyRow || _ <- lists:seq(1, H) ],
 
     {{X, Y, W, H}, Grid}.
 
-actor(Grid) ->
-    %% Main function for this actor
-    NewGrid =
+%% Main function for this actor
+actor(ActorData) ->
+    NewActorData =
         receive
             {Pid, Ref, get_grid_overview} ->
-                get_grid_overview(Grid, Pid, Ref);
+                get_grid_overview(ActorData, Pid, Ref);
             {Pid, Ref, reserve_cells, NumberOfCells} ->
-                reserve_cells(Grid, Pid, Ref, NumberOfCells);
+                reserve_cells(ActorData, Pid, Ref, NumberOfCells);
             {Pid, Ref, request_specific_cells, ReservationId, Coordinates} ->
-                request_specific_cells(Grid, Pid, Ref, ReservationId, Coordinates);
+                request_specific_cells(ActorData, Pid, Ref, ReservationId, Coordinates);
             {Pid, Ref, release_specific_cells, ReservationId, Coordinates} ->
-                release_specific_cells(Grid, Pid, Ref, ReservationId, Coordinates);
-            Else ->
-                erlang:display({self(), unexpected_message, grid_actor, Else})
+                release_specific_cells(ActorData, Pid, Ref, ReservationId, Coordinates)
         end,
-    actor(NewGrid).
+    actor(NewActorData).
 
-get_grid_overview(Grid, Pid, Ref) ->
-    %% Return the current subgrid to the caller
-    {Specs, Content} = Grid,
+%% Return the current subgrid to the caller
+get_grid_overview(ActorData, Pid, Ref) ->
+    {Specs, Content, _} = ActorData,
     Pid ! {self(), Ref, get_grid_overview, Content, Specs},
-    Grid.
+    ActorData.
 
-reserve_cells(Grid, _Pid, _Ref, _NumberOfCells) ->
-    %% Reserve cells, not handled here
-    Grid.
+%% Reserve cells, not handled here
+reserve_cells(ActorData, _Pid, _Ref, _NumberOfCells) ->
+    ActorData.
 
-intersection(Grid, Coordinates) ->
-    %% Compute and return the intersection coordinates in the local
-    %% coordinate system
-    {{X, Y, W, H}, _} = Grid,
+%% Compute and return the intersection coordinates in the local
+%% coordinate system
+intersection(ActorData, Coordinates) ->
+    {{X, Y, W, H}, _, _} = ActorData,
     {CX, CY, CW, CH} = Coordinates,
     if
         CX >= X + W; CY >= Y + H;
@@ -81,8 +80,8 @@ intersection(Grid, Coordinates) ->
             {IX - X + 1, IY - Y + 1, IW, IH}
     end.
 
+%% Check if a region is empty
 region_is_empty({X, Y, Width, Height}, GridContent) ->
-    %% Check if a region is empty
     Row = lists:nth(Y, GridContent),
     RelevantCells = lists:sublist(Row, X, X + Width),
     AllCellsEmpty = lists:all(fun(E) -> E == empty end, RelevantCells),
@@ -93,8 +92,8 @@ region_is_empty({X, Y, Width, Height}, GridContent) ->
             AllCellsEmpty
     end.
 
+%% Mark a region as reserved
 mark_region_reserved({X, Y, Width, Height}, GridContent) ->
-    %% Mark a region as reserved
     Row = lists:nth(Y, GridContent),
     ReservedCells = [ reserved || _ <- lists:seq(1, Width) ],
 
@@ -110,9 +109,9 @@ mark_region_reserved({X, Y, Width, Height}, GridContent) ->
             NewGrid
     end.
 
+%% Mark a region as empty (can happen if another grid actor fails
+%% to allocate a part of the same request)
 mark_region_empty({X, Y, Width, Height}, GridContent) ->
-    %% Mark a region as empty (can happen if another grid actor fails
-    %% to allocate a part of the same request)
     Row = lists:nth(Y, GridContent),
     EmptyCells = [ empty || _ <- lists:seq(1, Width) ],
 
@@ -128,44 +127,58 @@ mark_region_empty({X, Y, Width, Height}, GridContent) ->
             NewGrid
     end.
 
-request_specific_cells(Grid, Pid, Ref, _ReservationId, Coordinates) ->
-    %% Handle the specific requests
-    {Specs, Content} = Grid,
-    {NewGrid, Status} =
-        case intersection(Grid, Coordinates) of
+%% Handle the specific requests
+request_specific_cells(ActorData, Pid, Ref, ReservationId, Coordinates) ->
+    {Specs, Content, FailedReservations} = ActorData,
+    {NewActorData, Status} =
+        case intersection(ActorData, Coordinates) of
             none ->
                 %% Nothing to allocate in this actor
-                {Grid, success};
+                {ActorData, success};
             IntersectionCoordinates ->
                 case region_is_empty(IntersectionCoordinates, Content) of
                     false ->
                         %% Not empty, cannot allocate
-                        {Grid, failed};
+                        {{Specs, Content,
+                          %% Remember the ID in order not to release
+                          %% the cells when cancelling this
+                          %% reservation
+                          [ReservationId|FailedReservations]},
+                         failed};
                     true ->
                         %% Allocate
                         NewContent = mark_region_reserved(IntersectionCoordinates,
                                                           Content),
-                        {{Specs, NewContent},
+                        {{Specs, NewContent, FailedReservations},
                          success}
                 end
         end,
     Pid ! {self(), Ref, request_specific_cells, Status},
-    NewGrid.
+    NewActorData.
 
-release_specific_cells(Grid, Pid, Ref, _ReservationId, Coordinates) ->
-    %% Release a region previously allocated (in case another grid
-    %% actor has failed to allocate the region)
-    {Specs, Content} = Grid,
-    {NewGrid, Status} =
-        case intersection(Grid, Coordinates) of
-            none ->
-                %% Nothing to de-allocate in this actor
-                {Grid, success};
-            IntersectionCoordinates ->
-                NewContent = mark_region_empty(IntersectionCoordinates,
-                                               Content),
-                {{Specs, NewContent},
-                 success}
-        end,
+%% Release a region previously allocated (in case another grid
+%% actor has failed to allocate the region)
+release_specific_cells(ActorData, Pid, Ref, ReservationId, Coordinates) ->
+    {Specs, Content, FailedReservations} = ActorData,
+    Result = lists:keyfind(ReservationId, 1, FailedReservations),
+    {NewActorData, Status} =
+        if
+            Result ->
+                %% The request already failed, so we don't need to
+                %% mark its region empty, since it has never been
+                %% allocated on this actor
+                {ActorData, success};
+            true ->
+                case intersection(ActorData, Coordinates) of
+                    none ->
+                        %% Nothing to de-allocate in this actor
+                        {ActorData, success};
+                    IntersectionCoordinates ->
+                        NewContent = mark_region_empty(IntersectionCoordinates,
+                                                       Content),
+                        {{Specs, NewContent},
+                         success}
+                end
+            end,
     Pid ! {self(), Ref, request_specific_cells, Status},
-    NewGrid.
+    NewActorData.

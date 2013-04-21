@@ -96,13 +96,13 @@ request_specific_cells(ActorData, _MainPid, Pid, ReservationId, Coordinates) ->
     {GridSize, FreeCells, UnspecificRequests, NextId, AllocatorActor} = ActorData,
     {X, Y, W, H} = Coordinates,
     NumberOfCells = W*H,
-    {_, Request} = lists:keyfind(ReservationId, 1, UnspecificRequests),
+    Result = lists:keyfind(ReservationId, 1, UnspecificRequests),
     if
-        not Request;
+        not Result;
         X < 1; Y < 1;
         (X + W - 1) > GridSize;
         (Y + H - 1) > GridSize;
-        not (Request == NumberOfCells) ->
+        not (Result == {ReservationId, NumberOfCells}) ->
             %% Invalid request or request not found
             Pid ! {self(), request_specific_cells, ReservationId, failed},
             ActorData;
