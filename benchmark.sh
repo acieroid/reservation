@@ -27,7 +27,7 @@ for i in $(seq $ITERATIONS); do
                             -percent_specific $specific \
                             -clients $clients)
                         echo "$BENCHMARK $actors $time" | tee -a \
-                            benchmark_results/grid${gridsize}_clients${clients}_completion${completion}.txt
+                            benchmark_results/grid${gridsize}_clients${clients}_completion${completion}_specific${specific}.txt
                         echo
                     done
                 done
