@@ -98,7 +98,7 @@ create_reservation_list(0, _, AccList) ->
 create_reservation_list(NumberOfCellsToBeAllocated, GridDetails, AccList) ->
     {MaxCellsPerRequest,
      PercentSpecificRequests,
-     PercentFailingRequests,
+     _,
      Width, Height} = GridDetails,
     
     % determine the number of cells
