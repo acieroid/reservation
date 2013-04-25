@@ -129,7 +129,7 @@ copy_region(Content, SubContent, X, Y, W, H) ->
 
 %% Send the overview of the grid
 get_grid_overview(ActorData, MainPid, Pid) ->
-    {GridSize, _, _, Actors, _} = ActorData,
+    {GridSize, _, _, Actors, FreeCellsActor} = ActorData,
     %% Request the overview of each actor
     Ref = make_ref(),
     send_to_all(Actors, {self(), Ref, get_grid_overview}),
@@ -137,7 +137,7 @@ get_grid_overview(ActorData, MainPid, Pid) ->
     Content = get_grid_overview_gather_responses(Actors, Ref,
                                                  create_empty_grid_content(GridSize)),
     %% Send the result
-    Pid ! {MainPid, get_grid_overview, Content, {GridSize, GridSize}},
+    Pid ! {FreeCellsActor, get_grid_overview, Content, {GridSize, GridSize}},
     ActorData.
 
 %% Gather the responses containing the grid overviews sent by the

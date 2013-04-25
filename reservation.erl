@@ -30,9 +30,7 @@ get_size_of_resource(EntryPointPid) ->
     
     receive
         {EntryPointPid, get_size_of_resource, {Width, Height}} ->
-            {Width, Height};
-        E ->
-            erlang:display({error, got, E, instead, EntryPointPid})
+            {Width, Height}
     end.
 
 %% Query whether there are still free cells left.

@@ -40,6 +40,7 @@ prepare_actor(ActorData, MainPid) ->
 
 %% Main function of the free cells actor
 actor(ActorData, MainPid) ->
+    {_, _, _, _, AllocatorActor} = ActorData,
     NewActorData =
         receive
             {Pid, get_size_of_resource} ->
@@ -49,39 +50,42 @@ actor(ActorData, MainPid) ->
             {Pid, reserve_cells, NumberOfCells} ->
                 reserve_cells(ActorData, MainPid, Pid, NumberOfCells);
             {Pid, request_specific_cells, ReservationId, Coordinates} ->
-                request_specific_cells(ActorData, MainPid, Pid, ReservationId, Coordinates)
+                request_specific_cells(ActorData, MainPid, Pid, ReservationId, Coordinates);
+            {Pid, get_grid_overview} ->
+                AllocatorActor ! {Pid, get_grid_overview},
+                ActorData
         end,
     actor(NewActorData, MainPid).
 
 %% Send the grid size
-get_size_of_resource(ActorData, MainPid, Pid) ->
+get_size_of_resource(ActorData, _MainPid, Pid) ->
     {GridSize, _, _, _, _} = ActorData,
-    Pid ! {MainPid, get_size_of_resource, {GridSize, GridSize}},
+    Pid ! {self(), get_size_of_resource, {GridSize, GridSize}},
     ActorData.
 
 %% Check if we still have free cells
-has_remaining_free_cells(ActorData, MainPid, Pid) ->
+has_remaining_free_cells(ActorData, _MainPid, Pid) ->
     {_, FreeCells, _, _, _} = ActorData,
-    Pid ! {MainPid, has_remaining_free_cells, FreeCells > 0},
+    Pid ! {self(), has_remaining_free_cells, FreeCells > 0},
     ActorData.
 
 %% Reserve unspecific cells
-reserve_cells(ActorData, MainPid, Pid, NumberOfCells) ->
+reserve_cells(ActorData, _MainPid, Pid, NumberOfCells) ->
     {GridSize, FreeCells, UnspecificRequests, NextId, AllocatorActor} = ActorData,
     if
         NumberOfCells > GridSize*GridSize * ?MAX_REQUEST ->
             %% Too many cells requested
-            Pid ! {MainPid, reserve_cells, failed, request_too_large},
+            Pid ! {self(), reserve_cells, failed, request_too_large},
             ActorData;
         NumberOfCells > FreeCells ->
             %% Not enough cells remaining
-            Pid ! {MainPid, reserve_cells, failed, not_enough_cells_available},
+            Pid ! {self(), reserve_cells, failed, not_enough_cells_available},
             ActorData;
         true ->
             %% Correct request. Send this actor as the next entry
             %% point, since it will need to validate the specific
             %% request.
-            Pid ! {MainPid, reserve_cells, success, {self(), NextId}},
+            Pid ! {self(), reserve_cells, success, {self(), NextId}},
             {GridSize, FreeCells - NumberOfCells,
              %% TODO: concatenating is a bad idea
              UnspecificRequests ++ [{NextId, NumberOfCells}],

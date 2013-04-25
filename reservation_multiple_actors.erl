@@ -29,7 +29,7 @@ initialize(GridSize, NActors) ->
     FreeCellsActor ! {ready, AllocatorActor},
     MainPid ! {ready, FreeCellsActor, AllocatorActor},
     %% Return the main PID
-    MainPid.
+    FreeCellsActor.
 
 %% Waits for the PIDs of the managed actors to start
 prepare_actor() ->

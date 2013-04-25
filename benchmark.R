@@ -6,7 +6,7 @@ library(doBy)
 png(commandArgs(TRUE)[2])
 
 # Read the data
-bench <- read.table(commandArgs(TRUE)[1], sep=" ", header=FALSE, col.names=c("TestName", "Actors", "Time"), fill=TRUE)
+bench <- read.table(commandArgs(TRUE)[1], sep=" ", header=FALSE, col.names=c("TestName", "Actors", "Time", "CPUTime"), fill=TRUE)
 
 # Sort by actors
 bench <- ddply(bench, ~ Actors + Time, transform)
@@ -18,7 +18,7 @@ bench <- ddply(bench, ~ TestName, transform, Time = Time[Actors == 0] / Time)
 bench <- subset(bench, Actors != 0, c(Actors, Time))
 
 # Draw the beanplot
-beanplot(Time ~ Actors, data=bench, what = c(1,1,1,0), log="", ylab="Speedup", xlab="Actors", las=2)
+beanplot(Time ~ Actors, data=bench, what = c(1,1,1,0), log="", ylab="Speedup", xlab="Actors", las=2, ylim=c(0.5, 4))
 
 # Finish the image
 dev.off()
